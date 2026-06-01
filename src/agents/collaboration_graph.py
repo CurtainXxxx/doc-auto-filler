@@ -487,20 +487,12 @@ def _make_supervisor_node(llm):
         # ================================================================
         goto_target = END if validated_goto is END or validated_goto_str == "END" else validated_goto
 
-        display_name = AGENT_DISPLAY_NAMES.get(validated_goto_str, validated_goto_str)
-        decision_msg_parts = [f"**[Supervisor]** → {display_name}"]
-        if llm_reasoning:
-            decision_msg_parts.append(f"> *决策理由*: {llm_reasoning}")
-        if instruction:
-            decision_msg_parts.append(f"> {instruction}")
-
         return Command(
             goto=goto_target,
             update={
                 "user_intent": user_intent,
                 "supervisor_instruction": instruction or "请根据当前状态自主判断需要做什么",
                 "template_path": template_path,
-                "messages": [AIMessage(content="\n".join(decision_msg_parts))],
             }
         )
 
@@ -647,25 +639,13 @@ def _make_worker_node(agent_graph: CompiledStateGraph, agent_name: str,
             salvaged = _salvage_from_react_output(agent_name, final_messages, state)
             if salvaged is not None:
                 # 抢救成功：跳过结构化提取，直接用 ReAct 输出
-                visible_msg = AIMessage(
-                    content=(
-                        f"**[{AGENT_DISPLAY_NAMES.get(agent_name, agent_name)}]**\n"
-                        f"{last_ai_msg or '(任务完成)'}\n\n"
-                        f"ℹ️ 结构化提取不可用，已从工具输出直接解析数据。"
-                    )
-                )
+                visible_msg = AIMessage(content=last_ai_msg or "(任务完成)")
                 salvaged["messages"] = [visible_msg]
                 return Command(goto="supervisor", update=salvaged)
 
             # 抢救失败 → agent_refused（含断路计数）
             refused_count = state.get("refused_count", 0) + 1
-            visible_msg = AIMessage(
-                content=(
-                    f"**[{AGENT_DISPLAY_NAMES.get(agent_name, agent_name)}]**\n"
-                    f"{last_ai_msg or '(任务完成)'}\n\n"
-                    f"⚠️ 结构化输出提取失败且无法从工具输出恢复: {str(e)}"
-                )
-            )
+            visible_msg = AIMessage(content=last_ai_msg or "(任务完成)")
             return Command(
                 goto="supervisor",
                 update={
@@ -679,9 +659,7 @@ def _make_worker_node(agent_graph: CompiledStateGraph, agent_name: str,
         # ================================================================
         # 阶段 3：处理结构化数据 → 状态更新
         # ================================================================
-        visible_msg = AIMessage(
-            content=f"**[{AGENT_DISPLAY_NAMES.get(agent_name, agent_name)}]**\n{last_ai_msg or '(任务完成)'}"
-        )
+        visible_msg = AIMessage(content=last_ai_msg or "(任务完成)")
         updates: dict = {"messages": [visible_msg]}
 
         if agent_name == "data_agent":
