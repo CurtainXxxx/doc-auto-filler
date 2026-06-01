@@ -602,10 +602,22 @@ def _make_worker_node(agent_graph: CompiledStateGraph, agent_name: str,
         # ================================================================
         # 阶段 1：ReAct 循环（工具调用）
         # ================================================================
-        result = agent_graph.invoke(
-            {"messages": [HumanMessage(content=worker_input)]},
-            config,
-        )
+        try:
+            result = agent_graph.invoke(
+                {"messages": [HumanMessage(content=worker_input)]},
+                config,
+            )
+        except Exception as e:
+            # ReAct 循环失败 → 不可恢复
+            return Command(
+                goto="supervisor",
+                update={
+                    "task_stage": "agent_refused",
+                    "agent_refused_by": agent_name,
+                    "refused_count": state.get("refused_count", 0) + 1,
+                    "messages": [AIMessage(content=f"处理失败: {str(e)[:200]}")],
+                }
+            )
 
         final_messages = result.get("messages", [])
 
@@ -617,8 +629,21 @@ def _make_worker_node(agent_graph: CompiledStateGraph, agent_name: str,
             ):
                 last_ai_msg = m.content
                 break
+        if last_ai_msg is None:
+            # 回退：提取最后一条 ToolMessage 的内容作为显示
+            for m in reversed(final_messages):
+                if isinstance(m, ToolMessage) and m.content:
+                    try:
+                        parsed = json.loads(m.content)
+                        if isinstance(parsed, dict) and parsed.get("message"):
+                            last_ai_msg = parsed["message"]
+                            break
+                    except (json.JSONDecodeError, TypeError):
+                        pass
         if last_ai_msg is None and final_messages:
             last_ai_msg = str(final_messages[-1].content) if hasattr(final_messages[-1], "content") else ""
+        if not last_ai_msg:
+            last_ai_msg = "(任务完成)"
 
         # ================================================================
         # 阶段 2：结构化输出提取（with_structured_output）
@@ -731,9 +756,16 @@ def _make_worker_node(agent_graph: CompiledStateGraph, agent_name: str,
         return Command(goto="supervisor", update=updates)
 
     def _sync_worker_node(state: CollaborationState, config):
-        """同步包装器：本地测试 / sync invoke 兼容"""
+        """同步包装器：兼容有无运行中事件循环的场景"""
         import asyncio
-        return asyncio.run(_worker_node(state, config))
+        import concurrent.futures
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(_worker_node(state, config))
+        # 已有运行中的事件循环（如 uvicorn），在新线程中执行
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            return executor.submit(asyncio.run, _worker_node(state, config)).result()
 
     return _sync_worker_node
 
