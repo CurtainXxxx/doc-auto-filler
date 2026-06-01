@@ -359,7 +359,8 @@ export async function handleFileUpload(event) {
         }
       }
       if (fileParts.length > 0) {
-        const agentMsg = `我上传了${result.file_count}个知识文件。请用extract_facts工具分析下面的文件文本内容，不要调用任何文件读取工具。\n\n${fileParts.join('\n\n')}`;
+        const pathsSection = filePaths.length > 0 ? `\n【文件路径（重要！请用这些路径调用工具）】\n${filePaths.map((p, i) => `文件${i+1}: ${p}`).join('\n')}\n` : '';
+        const agentMsg = `我上传了${result.file_count}个文件。${pathsSection}\n请用analyze_uploaded_template或extract_from_old_report工具，传入上面的文件路径来分析。文件文本内容如下仅供参考：\n\n${fileParts.join('\n\n')}`;
         await callAgent(agentMsg);
       } else {
         appendMessage('assistant', `所有文件解析失败，请尝试其他格式或直接输入信息。`);
@@ -375,7 +376,7 @@ export async function handleFileUpload(event) {
       }
 
       if (result.success && result.extracted_text) {
-        const agentMsg = `我上传了知识文件"${result.filename}"。请用extract_facts工具分析下面的文件文本内容，不要调用任何文件读取工具。\n\n${result.extracted_text.substring(0, 3000)}`;
+        const agentMsg = `我上传了文件"${result.filename}"。\n\n【文件路径（重要！请用这个路径调用工具）】\n${result.file_path}\n\n请用analyze_uploaded_template或extract_from_old_report工具，传入上面的文件路径来分析。文件文本内容如下仅供参考：\n\n${result.extracted_text.substring(0, 3000)}`;
         await callAgent(agentMsg);
       } else {
         appendMessage('assistant', `文件解析失败：${result.error || '未知错误'}，请尝试其他格式或直接输入信息。`);
