@@ -359,13 +359,7 @@ export async function handleFileUpload(event) {
         }
       }
       if (fileParts.length > 0) {
-        const pathsSection = filePaths.length > 0 ? `\n【文件路径（重要！请用这些路径调用工具）】\n${filePaths.map((p, i) => `文件${i+1}: ${p}`).join('\n')}\n` : '';
-        // 区分模板文件和知识文件：docx用extract_from_old_report，其他用extract_facts
-        const hasDocx = result.files.some(f => f.filename && f.filename.toLowerCase().endsWith('.docx'));
-        const toolHint = hasDocx
-          ? '请用extract_from_old_report工具传入docx文件路径来提取旧报告数据'
-          : '请直接用extract_facts工具分析上面的文件文本内容（不要调文件读取工具！文件内容已经在消息中了）';
-        const agentMsg = `我上传了${result.file_count}个文件。${pathsSection}\n${toolHint}。文件文本内容如下：\n\n${fileParts.join('\n\n')}`;
+        const agentMsg = `我上传了${result.file_count}个知识文件。请用extract_facts工具分析下面的文件文本内容，不要调用任何文件读取工具。\n\n${fileParts.join('\n\n')}`;
         await callAgent(agentMsg);
       } else {
         appendMessage('assistant', `所有文件解析失败，请尝试其他格式或直接输入信息。`);
@@ -381,11 +375,7 @@ export async function handleFileUpload(event) {
       }
 
       if (result.success && result.extracted_text) {
-        const isDocx = result.filename && result.filename.toLowerCase().endsWith('.docx');
-        const toolHint = isDocx
-          ? `\n\n【文件路径（重要！请用这个路径调用工具）】\n${result.file_path}\n\n请用extract_from_old_report工具传入文件路径来分析`
-          : '\n\n请直接用extract_facts工具分析上面的文件文本内容（不要调文件读取工具！文件内容已经在消息中了）';
-        const agentMsg = `我上传了文件"${result.filename}"。${toolHint}。文件文本内容如下：\n\n${result.extracted_text.substring(0, 3000)}`;
+        const agentMsg = `我上传了知识文件"${result.filename}"。请用extract_facts工具分析下面的文件文本内容，不要调用任何文件读取工具。\n\n${result.extracted_text.substring(0, 3000)}`;
         await callAgent(agentMsg);
       } else {
         appendMessage('assistant', `文件解析失败：${result.error || '未知错误'}，请尝试其他格式或直接输入信息。`);
