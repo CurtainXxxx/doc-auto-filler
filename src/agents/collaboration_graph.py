@@ -367,23 +367,33 @@ def _goto_display(goto: str | object) -> str:
 def _guard_route(llm_goto: str, stage: str, state: CollaborationState) -> str | object:
     """安全守卫：硬拦截 LLM 的非法路由决策。
 
-    硬规则（不可被 LLM 覆盖）：
-    - 不能在非结束阶段选 END
-    - agent_refused 必须按 refused_by 路由
-
-    其余情况信任 LLM 决策。
-    返回字符串（节点名/"END"）或 END 哨兵。
+    规则优先级：
+    1. goto 值必须合法（data_agent/fill_agent/doc_agent/END）
+    2. 不能在非结束阶段选 END
+    3. agent_refused 必须按跳转表路由
+    4. LLM 决策与跳转表冲突时，以跳转表为准（LLM 只提供指令，不重写路由）
     """
-    # 硬规则1：不能在非结束阶段选 END
+    VALID_GOTOS = {"data_agent", "fill_agent", "doc_agent", "END"}
+
+    # 规则0：goto 值非法 → 跳转表兜底
+    if llm_goto not in VALID_GOTOS:
+        return _resolve_transition(stage, state)
+
+    # 规则1：不能在非结束阶段选 END
     if llm_goto == "END":
         if stage not in ("generated", "waiting_user_input"):
             return _resolve_transition(stage, state)
 
-    # 硬规则2：agent_refused 必须按规定路由
+    # 规则2：agent_refused → 跳转表
     if stage == "agent_refused":
         return _resolve_transition(stage, state)
 
-    # 其余：信任 LLM
+    # 规则3：跳转表有明确意见时，不信任 LLM
+    table_goto = _resolve_transition(stage, state)
+    if table_goto != llm_goto:
+        return table_goto
+
+    # 一致时信任
     return llm_goto
 
 
