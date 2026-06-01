@@ -183,6 +183,17 @@ def handle_tool_errors(request, handler):
 # ============================================================
 # LLM 构建
 # ============================================================
+def _get_extra_body(ext_api_key, base_url, cfg):
+    """根据模型提供商返回正确的 extra_body 参数"""
+    if not ext_api_key:
+        return {"thinking": {"type": cfg["config"].get("thinking", "disabled")}}
+    if "siliconflow" in (base_url or "").lower():
+        return {"enable_thinking": False}
+    if "deepseek" in (base_url or "").lower():
+        return {"thinking": {"type": "disabled"}}
+    return {}
+
+
 def _build_llm(ctx=None):
     workspace_path = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
     config_path = os.path.join(workspace_path, LLM_CONFIG)
@@ -209,11 +220,7 @@ def _build_llm(ctx=None):
         temperature=cfg["config"].get("temperature", 0.7),
         streaming=True,
         timeout=cfg["config"].get("timeout", 600),
-        extra_body=(
-            {"thinking": {"type": "disabled"}} if ext_api_key else {
-                "thinking": {"type": cfg["config"].get("thinking", "disabled")}
-            }
-        ),
+        extra_body=_get_extra_body(ext_api_key, base_url, cfg),
         default_headers=default_headers(ctx) if ctx and not ext_api_key else {},
     )
 
@@ -745,7 +752,12 @@ def _make_worker_node(agent_graph: CompiledStateGraph, agent_name: str,
 
         return Command(goto="supervisor", update=updates)
 
-    return _worker_node
+    def _sync_worker_node(state: CollaborationState, config):
+        """同步包装器：本地测试 / sync invoke 兼容"""
+        import asyncio
+        return asyncio.run(_worker_node(state, config))
+
+    return _sync_worker_node
 
 
 # ============================================================
