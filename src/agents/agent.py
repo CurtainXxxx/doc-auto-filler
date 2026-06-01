@@ -158,11 +158,9 @@ def build_agent(ctx=None):
         streaming=True,
         timeout=cfg["config"].get("timeout", 600),
         extra_body=(
-            {"thinking": {"type": "disabled"}} if ext_api_key else {
-                "thinking": {
-                    "type": cfg["config"].get("thinking", "disabled")
-                }
-            }
+            {"thinking": {"type": "disabled"}} if (ext_api_key and "deepseek" in (ext_base_url or "").lower()) else
+            {"enable_thinking": False} if (ext_api_key and "siliconflow" in (ext_base_url or "").lower()) else
+            {"thinking": {"type": cfg["config"].get("thinking", "disabled")}}
         ),
         default_headers=default_headers(ctx) if ctx and not ext_api_key else {},
     )
