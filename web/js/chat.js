@@ -1,4 +1,5 @@
 import { state, escapeHtml, renderMarkdown } from './helpers.js';
+import { fetchDocPreview, updatePreview, highlightUploadBtn, refreshProgressBar } from './preview.js';
 
 // ── Send Message ──
 // ── Send Message ──
