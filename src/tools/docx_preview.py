@@ -252,11 +252,13 @@ def _render_field_cell(attrs, cell_style, text, fields) -> str:
             label = f["label"]
             return (
                 f'<td{attrs} style="{cell_style}" class="doc-cell colon-field">'
+                f'<div class="colon-field-inner">'
                 f'<span class="cell-label">{_escape(label)}：</span>'
                 f'<span class="cell-value editable empty" '
                 f'data-field-id="{_escape(fid)}" '
                 f'data-label="{_escape(label)}" '
                 f'contenteditable="true"></span>'
+                f'</div>'
                 f'</td>'
             )
         else:
@@ -276,7 +278,9 @@ def _render_field_cell(attrs, cell_style, text, fields) -> str:
                 )
             return (
                 f'<td{attrs} style="{cell_style}" class="doc-cell colon-field multi-line">'
+                f'<div class="colon-field-inner">'
                 + ''.join(parts)
+                + f'</div>'
                 + '</td>'
             )
     else:
