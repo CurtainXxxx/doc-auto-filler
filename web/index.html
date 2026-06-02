@@ -2354,7 +2354,8 @@ async function handleFileUpload(event) {
       }
       if (fileParts.length > 0) {
         const pathsSection = filePaths.length > 0 ? `\n【文件路径（重要！请用这些路径调用工具）】\n${filePaths.map((p, i) => `文件${i+1}: ${p}`).join('\n')}\n` : '';
-        const agentMsg = `我上传了${result.file_count}个文件。${pathsSection}\n请用analyze_uploaded_template或extract_from_old_report工具，传入上面的文件路径来分析。文件文本内容如下仅供参考：\n\n${fileParts.join('\n\n')}`;
+        const tplHint = currentTemplatePath ? `\n当前模板路径：${currentTemplatePath}` : '';
+        const agentMsg = `我上传了${result.file_count}个知识文件。${tplHint}${pathsSection}\n请用prefill_from_multiple_knowledge工具从这些文件中提取字段值。参数：\n- file_paths_json: 上面这些文件路径的JSON数组\n- template_fields_json: 之前analyze_uploaded_template返回的label_fields\n- template_path: ${currentTemplatePath || '模板路径'}\n\n文件文本内容如下仅供参考：\n\n${fileParts.join('\n\n')}`;
         await callAgent(agentMsg);
       } else {
         appendMessage('assistant', `所有文件解析失败，请尝试其他格式或直接输入信息。`);
@@ -2370,7 +2371,17 @@ async function handleFileUpload(event) {
       }
 
       if (result.success && result.extracted_text) {
-        const agentMsg = `我上传了文件"${result.filename}"。\n\n【文件路径（重要！请用这个路径调用工具）】\n${result.file_path}\n\n请用analyze_uploaded_template或extract_from_old_report工具，传入上面的文件路径来分析。文件文本内容如下仅供参考：\n\n${result.extracted_text.substring(0, 3000)}`;
+        // 根据文件类型发送不同提示
+        const isDocx = result.filename && result.filename.toLowerCase().endsWith('.docx');
+        let agentMsg;
+        if (isDocx) {
+          // docx 文件 → 可能是旧报告，用 extract_from_old_report
+          agentMsg = `我上传了一个旧报告文件"${result.filename}"。\n\n【文件路径】${result.file_path}\n\n请用extract_from_old_report工具提取其中的数据。文件文本内容仅供参考：\n\n${result.extracted_text.substring(0, 3000)}`;
+        } else {
+          // 知识文件（txt/csv/pdf/xlsx等）→ 用 prefill_from_knowledge
+          const tplHint = currentTemplatePath ? `\n当前模板路径：${currentTemplatePath}\n模板字段总数：${Object.keys(fieldMap).length}` : '';
+          agentMsg = `我上传了一个知识文件"${result.filename}"。${tplHint}\n\n【文件路径】${result.file_path}\n\n请用prefill_from_knowledge工具从这个知识文件中提取字段值。参数说明：\n- file_path: ${result.file_path}\n- template_fields_json: 之前analyze_uploaded_template返回的label_fields\n- template_path: ${currentTemplatePath || '之前上传的模板路径'}\n\n文件文本内容如下仅供参考：\n\n${result.extracted_text.substring(0, 3000)}`;
+        }
         await callAgent(agentMsg);
       } else {
         appendMessage('assistant', `文件解析失败：${result.error || '未知错误'}，请尝试其他格式或直接输入信息。`);
