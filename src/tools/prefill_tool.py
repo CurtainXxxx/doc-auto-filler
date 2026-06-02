@@ -168,6 +168,226 @@ def _llm_prefill_fields(field_list: list, file_content: str, ctx=None) -> list:
     return all_results
 
 
+def _llm_prefill_row_groups(row_groups: list, file_content: str, ctx=None) -> dict:
+    """使用LLM从文件内容中提取行组数据（动态表格行）。
+
+    row_groups 是模板中识别出的动态行区域（如关联矩阵表中的数据行），
+    每行的列数由模板定义，但行数取决于知识文件内容。
+
+    Args:
+        row_groups: 行组列表 [{"group_id": "T0_G0", "column_labels": [...], ...}]
+        file_content: 知识文件文本内容
+        ctx: 请求上下文
+
+    Returns:
+        dict: {group_id: [["col1", "col2", ...], ...]}
+    """
+    if not row_groups:
+        return {}
+
+    max_chars = 10000
+    if len(file_content) > max_chars:
+        file_content = file_content[:max_chars] + "\n...(内容过长已截断)"
+
+    groups_desc = []
+    for g in row_groups:
+        cols = g.get("column_labels", [])
+        groups_desc.append({
+            "group_id": g["group_id"],
+            "table_idx": g.get("table_idx", 0),
+            "columns": cols,
+            "header": g.get("header_text", " | ".join(cols)),
+        })
+
+    system_prompt = """你是一个教务文档信息提取专家，擅长从文件内容中提取结构化表格数据。
+
+# 任务
+根据提供的表格列定义，从文件内容中提取每一行的数据。
+
+# 关键规则
+1. 每行数据是一个数组，按列顺序排列，长度必须与列数一致
+2. 仔细阅读全文，不要遗漏任何段落中的数据
+3. 非常重要：文件中的数据可能是分多个段落描述的，例如：
+   - 段落A说："一级指标1工程知识，二级指标1.2问题分析" → 提供了列1和列2
+   - 段落B说："目标1支撑毕业要求1.2" → 提供了列3的支撑关系
+   你需要把A和B的数据合并为一行：["工程知识", "1.2问题分析", "课程目标1"]
+4. 按列1的值对行去重，同一行不要出现多次
+5. 如果确实找不到某列的数据，不要编造，但尽量从全文搜索匹配
+
+# 输出格式
+严格返回JSON对象，键为group_id，值为二维数组:
+{
+  "T0_G0": [["列1值", "列2值", "列3值"]],
+  "T1_G0": []
+}"""
+
+    groups_json = json.dumps(groups_desc, ensure_ascii=False)
+    user_prompt = f"""请从以下文件内容中提取这些表格的数据。
+
+表格定义：
+{groups_json}
+
+文件内容：
+{file_content}
+
+重要提示：
+- 全文搜索，数据可能分散在多个段落
+- 对于三列表格，如果列1列2在一个段落，列3（支撑/对应关系）在另一个段落，必须合并填充
+- 例如：如果文中先说"指标A对应指标B"，后面说"目标X支撑指标B"，则整合为 ["A", "B描述", "课程目标X"]
+
+请返回JSON对象，只返回JSON，不要其他文字。"""
+
+    try:
+        content_str = _call_llm(system_prompt, user_prompt, ctx)
+        result = _parse_json_object(content_str)
+        if result and isinstance(result, dict):
+            # 后处理：尝试从文件内容中补全支撑关系等缺失列
+            result = _post_process_row_groups(result, row_groups, file_content)
+            return result
+        return {}
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"LLM行组提取失败: {e}")
+        return {}
+
+
+def _post_process_row_groups(rg_data: dict, row_groups: list, file_content: str) -> dict:
+    """后处理行组数据：补全LLM未提取出或提取不完整的行组。
+
+    两步策略：
+    1. 如果LLM已返回行数据但某些列缺失 → 合并支撑关系文本补全
+    2. 如果LLM返回空 → 直接从文件内容中用规则提取行数据
+    """
+    if not row_groups:
+        return rg_data
+
+    import re as _re
+
+    for g in row_groups:
+        gid = g["group_id"]
+        rows = rg_data.get(gid, [])
+        col_labels = g.get("column_labels", [])
+
+        # 找到"支撑/对应"列索引
+        support_col_idx = None
+        for i, label in enumerate(col_labels):
+            if any(kw in label for kw in ['支撑', '对应', '关系', '关联']):
+                support_col_idx = i
+                break
+
+        # 收集支撑关系文本行
+        support_lines = []
+        for line in file_content.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            if any(kw in line for kw in ['支撑', '对应', '关系']):
+                support_lines.append(line)
+        support_text = ' '.join(support_lines)
+
+        # ── 情况1：LLM返回了空数据 → 尝试规则提取 ──
+        if not rows:
+            rows = _rule_extract_row_group_data(file_content, g)
+            if rows:
+                rg_data[gid] = rows
+
+        # ── 情况2：补全缺失的支撑列 ──
+        if support_col_idx is not None and rows:
+            for row in rows:
+                if support_col_idx < len(row) and row[support_col_idx] and str(row[support_col_idx]).strip():
+                    continue
+
+                search_keys = []
+                for val in row:
+                    if not val or not str(val).strip():
+                        continue
+                    nums = _re.findall(r'[\d]+\.[\d]+', str(val))
+                    search_keys.extend(nums)
+
+                if not search_keys:
+                    continue
+
+                matched_goals = []
+                for key in search_keys:
+                    escaped_key = _re.escape(key)
+                    pattern = r'(?:课程)?目标\d+(?=[^，。；;]*?' + escaped_key + r')'
+                    goals = _re.findall(pattern, support_text)
+                    if goals:
+                        matched_goals.extend(goals)
+
+                if matched_goals:
+                    unique_vals = list(dict.fromkeys(matched_goals))
+                    while len(row) <= support_col_idx:
+                        row.append("")
+                    row[support_col_idx] = "、".join(unique_vals)
+
+    return rg_data
+
+
+def _rule_extract_row_group_data(file_content: str, row_group: dict) -> list:
+    """当LLM无法提取行组数据时，用正则规则兜底提取。
+
+    支持的格式：
+    - "一级指标1工程知识，二级指标1.2问题分析" → 拆分为多行
+    - "目标1对应第1、2题" → 拆分为多行
+    """
+    import re as _re
+    col_labels = row_group.get("column_labels", [])
+    num_cols = len(col_labels)
+
+    # ── 判断表格类型 ──
+    # 类型A：含有"一级指标"/"二级指标"等 → 毕业要求关联矩阵
+    if any('一级指标' in c or '二级指标' in c for c in col_labels):
+        return _extract_graduation_requirement_rows(file_content, num_cols)
+
+    # 类型B：含有"课程目标"/"题号"等 → 课程目标关联表
+    if any('课程目标' in c or '目标' in c for c in col_labels):
+        return _extract_course_objective_rows(file_content, num_cols)
+
+    return []
+
+
+def _extract_graduation_requirement_rows(file_content: str, num_cols: int) -> list:
+    """从文件中提取毕业要求关联矩阵行。"""
+    import re as _re
+    rows = []
+
+    # 提取 "一级指标N名称，二级指标N.N名称" 模式
+    pattern = r'一级指标(\d+)\s*([^，,;；。]+)[，,;；]\s*二级指标\s*([\d.]+)\s*([^，,;；。]+)'
+    for m in _re.finditer(pattern, file_content):
+        indicator_num = m.group(1)
+        indicator_name = m.group(2).strip()
+        sub_num = m.group(3).strip()
+        sub_name = m.group(4).strip()
+
+        if num_cols >= 3:
+            rows.append([indicator_name, f"{sub_num}{sub_name}", ""])
+        elif num_cols == 2:
+            rows.append([indicator_name, f"{sub_num}{sub_name}"])
+
+    return rows
+
+
+def _extract_course_objective_rows(file_content: str, num_cols: int) -> list:
+    """从文件中提取课程目标关联行。"""
+    import re as _re
+    rows = []
+
+    # 提取 "目标N对应第X、Y题" 或 "目标N对第X、Y题"
+    for line in file_content.split('\n'):
+        line = line.strip()
+        # 匹配 "目标N对应/对第X、Y题" 模式
+        pattern = r'(?:课程)?目标(\d+)\s*(?:对应|对)\s*(.+)'
+        m = _re.search(pattern, line)
+        if m:
+            obj_num = m.group(1)
+            question_ref = m.group(2).strip().rstrip('。，,;；')
+            if num_cols >= 2:
+                rows.append([f"目标{obj_num}", question_ref])
+
+    return rows
+
+
 def _call_llm(system_prompt: str, user_prompt: str, ctx=None) -> str:
     """调用LLM，支持外部API和平台内置LLM。带重试逻辑。"""
     import time
@@ -254,6 +474,49 @@ def _parse_json_array(text: str) -> list:
             pass
 
     return []
+
+
+def _parse_json_object(text: str) -> dict:
+    """从LLM返回文本中解析JSON对象。"""
+    text = text.strip()
+
+    # 尝试直接解析
+    try:
+        result = json.loads(text)
+        if isinstance(result, dict):
+            return result
+    except json.JSONDecodeError:
+        pass
+
+    # 尝试提取JSON代码块
+    json_match = re.search(r'```(?:json)?\s*([\s\S]*?)```', text)
+    if json_match:
+        try:
+            result = json.loads(json_match.group(1).strip())
+            if isinstance(result, dict):
+                return result
+        except json.JSONDecodeError:
+            pass
+
+    # 尝试提取花括号内容
+    brace_start = text.find('{')
+    if brace_start >= 0:
+        brace_count = 0
+        for i in range(brace_start, len(text)):
+            if text[i] == '{':
+                brace_count += 1
+            elif text[i] == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    try:
+                        result = json.loads(text[brace_start:i + 1])
+                        if isinstance(result, dict):
+                            return result
+                    except json.JSONDecodeError:
+                        pass
+                    break
+
+    return {}
 
 
 def _find_matching_result(results: list, label: str, field_id: str) -> dict:
@@ -386,9 +649,9 @@ def _merge_multi_file_results(all_file_results: list) -> list:
 # ── 对外工具函数 ──
 
 @tool
-def prefill_from_knowledge(file_path: str, template_fields_json: str) -> str:
+def prefill_from_knowledge(file_path: str, template_fields_json: str, row_groups_json: str = "", template_path: str = "") -> str:
     """从知识文件中提取模板字段值，生成带置信度的预填结果。
-    
+
     用户上传知识文件（教学大纲、成绩单等）后，调用此工具自动提取所有字段的值。
     返回的预填结果包含置信度，前端据此展示不同颜色标记：
     - confirmed(绿): 置信度≥0.8，可直接使用
@@ -398,6 +661,8 @@ def prefill_from_knowledge(file_path: str, template_fields_json: str) -> str:
     Args:
         file_path: 知识文件路径
         template_fields_json: 模板字段清单JSON（来自analyze_template或analyze_uploaded_template的label_fields）
+        row_groups_json: 模板行组清单JSON（可选。如果传了template_path，此参数可省略——会自动分析模板获取行组）
+        template_path: 模板文件路径（可选。传入后自动分析模板获取行组，无需单独传row_groups_json）
     """
     ctx = request_context.get() or new_context(method="prefill_from_knowledge")
 
@@ -434,20 +699,32 @@ def prefill_from_knowledge(file_path: str, template_fields_json: str) -> str:
         if not field_list:
             return json.dumps({"success": False, "message": "字段清单为空"}, ensure_ascii=False)
 
-        # 4. LLM智能提取
+        # 4. 自动获取行组（如果传了 template_path 但没传 row_groups_json）
+        if not row_groups_json and template_path:
+            try:
+                analysis = analyze_template(template_path)
+                row_groups = analysis.get("row_groups", [])
+                if row_groups:
+                    row_groups_json = json.dumps(row_groups, ensure_ascii=False)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"自动分析模板行组失败: {e}")
+                row_groups_json = ""
+
+        # 5. LLM智能提取
         llm_results = _llm_prefill_fields(field_list, file_content, ctx=ctx)
 
-        # 5. 规则匹配兜底
+        # 6. 规则匹配兜底
         rule_results = _rule_prefill_fields(field_list, file_content)
 
-        # 6. 合并结果
+        # 7. 合并结果
         merged = _merge_prefill_results(llm_results, rule_results)
 
-        # 7. 标记状态
+        # 8. 标记状态
         for r in merged:
             r['status'] = _classify_status(r['confidence'])
 
-        # 8. 统计
+        # 9. 统计
         confirmed = sum(1 for r in merged if r['status'] == 'confirmed')
         review = sum(1 for r in merged if r['status'] == 'review')
         empty = sum(1 for r in merged if r['status'] == 'empty')
@@ -466,6 +743,30 @@ def prefill_from_knowledge(file_path: str, template_fields_json: str) -> str:
             "summary": f"已预填 {confirmed + review}/{total} 个字段（{confirmed}个高置信，{review}个需审核，{empty}个未填）"
         }
 
+        # 10. 提取行组数据
+        if row_groups_json:
+            try:
+                if isinstance(row_groups_json, str):
+                    row_groups = json.loads(row_groups_json)
+                else:
+                    row_groups = row_groups_json
+                if row_groups:
+                    rg_data = _llm_prefill_row_groups(row_groups, file_content, ctx=ctx)
+                    row_group_info = []
+                    for g in row_groups:
+                        gid = g["group_id"]
+                        row_group_info.append({
+                            "group_id": gid,
+                            "table_idx": g["table_idx"],
+                            "column_labels": g.get("column_labels", []),
+                            "template_row_count": g["template_row_count"],
+                            "data": rg_data.get(gid, []),
+                        })
+                    result["row_groups"] = row_group_info
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"行组数据提取失败: {e}")
+
         return json.dumps(result, ensure_ascii=False)
 
     except Exception as e:
@@ -475,7 +776,7 @@ def prefill_from_knowledge(file_path: str, template_fields_json: str) -> str:
 
 
 @tool
-def prefill_from_multiple_knowledge(file_paths_json: str, template_fields_json: str) -> str:
+def prefill_from_multiple_knowledge(file_paths_json: str, template_fields_json: str, row_groups_json: str = "", template_path: str = "") -> str:
     """从多个知识文件中联合提取模板字段值，生成带置信度的预填结果。
 
     与 prefill_from_knowledge 的区别：支持多个知识文件，自动合并结果。
@@ -484,6 +785,8 @@ def prefill_from_multiple_knowledge(file_paths_json: str, template_fields_json: 
     Args:
         file_paths_json: 知识文件路径列表JSON，如 '["/tmp/file1.docx", "/tmp/file2.pdf"]'
         template_fields_json: 模板字段清单JSON
+        row_groups_json: 模板行组清单JSON（可选。如果传了template_path，此参数可省略）
+        template_path: 模板文件路径（可选。传入后自动分析模板获取行组）
     """
     ctx = request_context.get() or new_context(method="prefill_from_multiple_knowledge")
 
@@ -498,6 +801,21 @@ def prefill_from_multiple_knowledge(file_paths_json: str, template_fields_json: 
             template_fields = json.loads(template_fields_json)
         else:
             template_fields = template_fields_json
+
+        # 自动获取行组（如果传了 template_path 但没传 row_groups_json）
+        row_groups = []
+        if row_groups_json:
+            if isinstance(row_groups_json, str):
+                row_groups = json.loads(row_groups_json)
+            else:
+                row_groups = row_groups_json
+        elif template_path:
+            try:
+                analysis = analyze_template(template_path)
+                row_groups = analysis.get("row_groups", [])
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"自动分析模板行组失败: {e}")
 
         if not file_paths:
             return json.dumps({"success": False, "message": "未提供文件路径"}, ensure_ascii=False)
@@ -515,6 +833,7 @@ def prefill_from_multiple_knowledge(file_paths_json: str, template_fields_json: 
 
         # 逐文件提取
         all_file_results = []
+        all_rg_results = {}
         file_names = []
         for fp in file_paths:
             workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
@@ -532,11 +851,16 @@ def prefill_from_multiple_knowledge(file_paths_json: str, template_fields_json: 
 
             file_names.append(os.path.basename(full_path))
 
-            # LLM + 规则 提取
+            # LLM + 规则 提取字段
             llm_results = _llm_prefill_fields(field_list, file_content, ctx=ctx)
             rule_results = _rule_prefill_fields(field_list, file_content)
             merged = _merge_prefill_results(llm_results, rule_results)
             all_file_results.append(merged)
+
+            # LLM提取行组数据
+            if row_groups:
+                rg_data = _llm_prefill_row_groups(row_groups, file_content, ctx=ctx)
+                all_rg_results.update(rg_data)
 
         if not all_file_results:
             return json.dumps({"success": False, "message": "所有文件解析失败"}, ensure_ascii=False)
@@ -568,6 +892,20 @@ def prefill_from_multiple_knowledge(file_paths_json: str, template_fields_json: 
             "summary": f"从{len(file_names)}个文件中预填 {confirmed + review}/{total} 个字段（{confirmed}个高置信，{review}个需审核，{empty}个未填）"
         }
 
+        # 附加行组数据
+        if row_groups:
+            row_group_info = []
+            for g in row_groups:
+                gid = g["group_id"]
+                row_group_info.append({
+                    "group_id": gid,
+                    "table_idx": g["table_idx"],
+                    "column_labels": g.get("column_labels", []),
+                    "template_row_count": g["template_row_count"],
+                    "data": all_rg_results.get(gid, []),
+                })
+            result["row_groups"] = row_group_info
+
         return json.dumps(result, ensure_ascii=False)
 
     except Exception as e:
@@ -591,9 +929,10 @@ def prefill_from_file_paths(file_paths: list, template_path: str) -> dict:
         dict: 预填结果
     """
     try:
-        # 1. 分析模板字段
+        # 1. 分析模板字段和行组
         analysis = analyze_template(template_path)
         template_fields = analysis.get("label_fields", [])
+        row_groups = analysis.get("row_groups", [])
 
         if not template_fields:
             return {"success": False, "message": "模板字段识别为空"}
@@ -608,6 +947,7 @@ def prefill_from_file_paths(file_paths: list, template_path: str) -> dict:
 
         # 3. 逐文件提取
         all_file_results = []
+        all_rg_results = {}
         file_names = []
         workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
 
@@ -626,12 +966,17 @@ def prefill_from_file_paths(file_paths: list, template_path: str) -> dict:
 
             file_names.append(os.path.basename(full_path))
 
-            # LLM + 规则 提取
+            # LLM + 规则 提取字段
             ctx = new_context(method="prefill_api")
             llm_results = _llm_prefill_fields(field_list, file_content, ctx=ctx)
             rule_results = _rule_prefill_fields(field_list, file_content)
             merged = _merge_prefill_results(llm_results, rule_results)
             all_file_results.append(merged)
+
+            # LLM提取行组数据
+            if row_groups:
+                rg_data = _llm_prefill_row_groups(row_groups, file_content, ctx=ctx)
+                all_rg_results.update(rg_data)
 
         if not all_file_results:
             return {"success": False, "message": "所有知识文件解析失败"}
@@ -649,7 +994,19 @@ def prefill_from_file_paths(file_paths: list, template_path: str) -> dict:
         empty = sum(1 for r in final_results if r['status'] == 'empty')
         total = len(final_results)
 
-        return {
+        # 构建行组信息（带列名，供前端和Agent使用）
+        row_group_info = []
+        for g in row_groups:
+            gid = g["group_id"]
+            row_group_info.append({
+                "group_id": gid,
+                "table_idx": g["table_idx"],
+                "column_labels": g.get("column_labels", []),
+                "template_row_count": g["template_row_count"],
+                "data": all_rg_results.get(gid, []),
+            })
+
+        result = {
             "success": True,
             "template_name": os.path.basename(template_path),
             "file_names": file_names,
@@ -661,8 +1018,11 @@ def prefill_from_file_paths(file_paths: list, template_path: str) -> dict:
             "fill_rate": f"{confirmed + review}/{total}",
             "fill_rate_pct": round((confirmed + review) / total * 100, 1) if total > 0 else 0,
             "fields": final_results,
+            "row_groups": row_group_info,
             "summary": f"从{len(file_names)}个文件中预填 {confirmed + review}/{total} 个字段"
         }
+
+        return result
 
     except Exception as e:
         import logging
