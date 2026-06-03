@@ -2459,6 +2459,13 @@ function _printDocFallback() {
         padding: 3px 6px; vertical-align: middle;
         text-align: left; word-wrap: break-word;
       }
+      .doc-table td { display: table-cell !important; }
+      .colon-field-inner {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 2px;
+      }
+      .doc-cell.colon-field.multi-line .colon-field-inner {
+        flex-direction: column; align-items: stretch;
+      }
       .label-cell { font-weight: bold; }
       .value-cell { min-width: 30px; }
       .value-cell.filled { color: #000; }
