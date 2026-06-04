@@ -1,0 +1,2601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>教务文档生成</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --primary: #2563EB;
+  --primary-light: #3B82F6;
+  --primary-lighter: #EFF6FF;
+  --primary-soft: #F0F5FF;
+  --bg: #F5F6F8;
+  --surface: #FFFFFF;
+  --border: #DEE1E6;
+  --border-light: #EBEEF2;
+  --text: #1A1D23;
+  --text-secondary: #6B7280;
+  --text-muted: #9CA3AF;
+  --success: #059669;
+  --success-bg: #ECFDF5;
+  --success-border: #A7F3D0;
+  --warning: #D97706;
+  --danger: #DC2626;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.1);
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 10px;
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.chat-panel {
+  width: 45%;
+  min-width: 420px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+
+.chat-header {
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--surface);
+}
+.chat-header .avatar {
+  width: 36px; height: 36px;
+  border-radius: 6px;
+  background: var(--primary);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 14px; font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.chat-header .info h2 {
+  font-size: 15px; font-weight: 600; color: var(--text);
+}
+.chat-header .info p {
+  font-size: 12px; color: var(--text-muted); margin-top: 1px;
+  display: flex; align-items: center; gap: 6px;
+}
+.chat-header .info p::before {
+  content: ''; display: inline-block;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--success);
+}
+
+.steps-bar {
+  display: flex;
+  padding: 10px 16px;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-light);
+  background: #FAFBFC;
+}
+.steps-bar .step {
+  flex: 1;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  position: relative;
+  padding-top: 16px;
+  transition: color 0.2s;
+  white-space: nowrap;
+}
+.steps-bar .step::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: all 0.2s;
+  z-index: 2;
+}
+.steps-bar .step::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: calc(50% + 14px);
+  right: calc(-50% + 14px);
+  height: 1px;
+  background: var(--border);
+  transition: background 0.2s;
+  z-index: 1;
+}
+.steps-bar .step:last-child::after { display: none; }
+.steps-bar .step.active { color: var(--primary); font-weight: 600; }
+.steps-bar .step.active::before { background: var(--primary); width: 9px; height: 9px; top: -1px; }
+.steps-bar .step.active::after { background: var(--primary-light); }
+.steps-bar .step.done { color: var(--success); }
+.steps-bar .step.done::before { background: var(--success); }
+.steps-bar .step.done::after { background: var(--success); }
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scroll-behavior: smooth;
+}
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: #D0D5DD; border-radius: 4px; }
+
+.msg { display: flex; gap: 8px; max-width: 100%; }
+.msg.user { flex-direction: row-reverse; }
+
+.msg .avatar-icon {
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  align-self: flex-end;
+}
+.msg.assistant .avatar-icon { background: var(--primary); color: #fff; }
+.msg.user .avatar-icon { background: #E5E7EB; color: var(--text-secondary); }
+
+.msg .bubble {
+  max-width: 85%;
+  padding: 9px 13px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.msg.assistant .bubble { background: #F4F5F7; color: var(--text); border-bottom-left-radius: 3px; }
+.msg.user .bubble { background: var(--primary); color: #fff; border-bottom-right-radius: 3px; }
+
+.typing-dots { display: inline-flex; gap: 4px; padding: 4px 2px; }
+.typing-dots span { width: 4px; height: 4px; border-radius: 50%; background: var(--text-muted); animation: bounce 1.4s infinite; }
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+.download-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 6px; padding: 6px 14px;
+  background: var(--primary); color: #fff !important;
+  border-radius: var(--radius-sm); text-decoration: none;
+  font-size: 12.5px; font-weight: 500;
+  transition: background 0.15s;
+}
+.download-link:hover { background: var(--primary-light); }
+
+.choice-box {
+  margin-top: 8px; padding: 8px 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 13px;
+}
+.choice-box .choice-title { font-weight: 600; margin-bottom: 6px; color: var(--primary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.choice-box label { display: flex; align-items: center; gap: 8px; padding: 5px 6px; cursor: pointer; border-radius: 4px; transition: background 0.1s; }
+.choice-box label:hover { background: var(--primary-lighter); }
+.choice-box input[type="radio"] { accent-color: var(--primary); }
+
+.file-card {
+  margin-top: 6px; padding: 8px 12px;
+  background: var(--success-bg); border: 1px solid var(--success-border);
+  border-radius: var(--radius-sm); font-size: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.file-card .file-icon { font-size: 14px; color: var(--success); }
+.file-card .file-info { flex: 1; }
+.file-card .file-name { font-weight: 500; color: var(--text); }
+.file-card .file-size { color: var(--text-secondary); font-size: 10.5px; }
+
+.func-panel {
+  border-top: 1px solid var(--border);
+  background: #FAFBFC;
+  padding: 10px 14px;
+}
+.func-panel .func-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.func-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text);
+  text-align: left;
+}
+.func-btn:hover { border-color: var(--primary-light); background: var(--primary-lighter); }
+.func-btn .func-icon {
+  font-size: 14px; flex-shrink: 0;
+  width: 28px; height: 28px; border-radius: 4px;
+  background: var(--primary-lighter);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; color: var(--primary);
+}
+.func-btn:hover .func-icon { background: var(--primary); color: #fff; }
+.func-btn .func-text { line-height: 1.35; }
+.func-btn .func-text .title { font-weight: 600; font-size: 12px; display: block; }
+.func-btn .func-text .desc { font-size: 10px; color: var(--text-secondary); display: block; margin-top: 1px; }
+.func-btn.active { border-color: var(--primary); background: var(--primary-lighter); }
+.func-btn.active .func-icon { background: var(--primary); color: #fff; }
+.func-btn.active .func-text .title { color: var(--primary); }
+.func-btn.active .func-text .desc { color: var(--primary-light); }
+
+.chat-input {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 6px; align-items: flex-end;
+  background: var(--surface);
+}
+.chat-input .upload-btn {
+  width: 36px; height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; flex-shrink: 0;
+  color: var(--text-secondary); position: relative; overflow: hidden;
+}
+.chat-input .upload-btn:hover { border-color: var(--primary-light); color: var(--primary); background: var(--primary-lighter); }
+.chat-input .upload-btn input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.chat-input textarea {
+  flex: 1; resize: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 13px; font-family: inherit; line-height: 1.5;
+  max-height: 100px; outline: none;
+  transition: border-color 0.15s;
+  background: #FAFBFC;
+}
+.chat-input textarea:focus { border-color: var(--primary); background: var(--surface); }
+.chat-input textarea::placeholder { color: var(--text-muted); }
+.chat-input .send-btn {
+  width: 36px; height: 36px;
+  border: none; border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: var(--primary); color: #fff; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s; flex-shrink: 0;
+}
+.chat-input .send-btn:hover { background: var(--primary-light); }
+.chat-input .send-btn:active { opacity: 0.85; }
+.chat-input .send-btn:disabled { background: #D1D5DB; cursor: not-allowed; }
+
+/* ── Right Panel: Document Preview ── */
+.preview-panel {
+  flex: 1;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  min-width: 0;
+}
+.preview-header {
+  padding: 12px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.preview-header .title-area { display: flex; align-items: center; gap: 8px; }
+.preview-header .title-area h3 { font-size: 14px; font-weight: 600; color: var(--text); }
+.preview-header .actions { display: flex; gap: 6px; }
+.preview-header .actions button {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 12px; cursor: pointer;
+  transition: all 0.15s;
+  display: flex; align-items: center; gap: 4px;
+  color: var(--text-secondary);
+  font-family: inherit;
+}
+.preview-header .actions button:hover { border-color: var(--primary-light); color: var(--primary); }
+.preview-header .actions button.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.preview-header .actions button.primary:hover { background: var(--primary-light); }
+.preview-header .actions .print-btn { color: #555; border-color: #ddd; }
+.preview-header .actions .print-btn:hover { border-color: #999; color: #333; }
+
+.preview-body {
+  flex: 1; overflow: auto;
+  padding: 28px;
+  display: flex; justify-content: center;
+  align-items: flex-start;
+}
+.preview-body::-webkit-scrollbar { width: 5px; }
+.preview-body::-webkit-scrollbar-track { background: transparent; }
+.preview-body::-webkit-scrollbar-thumb { background: #D0D5DD; border-radius: 4px; }
+
+.empty-state { text-align: center; color: var(--text-secondary); margin-top: 80px; max-width: 300px; }
+.empty-state .icon-wrap {
+  width: 56px; height: 56px; border-radius: var(--radius);
+  background: var(--primary-lighter);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+}
+.empty-state .icon-wrap svg { width: 24px; height: 24px; color: var(--primary); }
+.empty-state h4 { font-size: 15px; color: var(--text); margin-bottom: 6px; font-weight: 600; }
+.empty-state p { font-size: 12.5px; line-height: 1.7; color: var(--text-secondary); }
+
+/* ── Document Page (like a Word page) ── */
+.doc-page {
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius);
+  width: 100%; max-width: 860px;
+  min-height: 540px;
+  padding: 36px 44px;
+  font-size: 10.5pt;
+  line-height: 1.8;
+  color: #1a1a1a;
+}
+.doc-page h2 {
+  text-align: center; font-size: 14pt;
+  margin-bottom: 20px; font-weight: 600;
+  color: #000; letter-spacing: 1px;
+}
+.doc-page p {
+  margin-bottom: 6px;
+}
+
+/* ── Document Table (mimic Word table) ── */
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 12px;
+  font-size: 9pt;
+  line-height: 1.6;
+}
+.doc-table td {
+  border: 1px solid #333;
+  padding: 3px 6px;
+  vertical-align: middle;
+  word-break: break-all;
+}
+.doc-table td.label {
+  background: #f8f8f8;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* ── Editable cells in document ── */
+.doc-cell.editable {
+  position: relative;
+  min-width: 30px;
+  min-height: 20px;
+}
+.doc-cell.editable.empty {
+  background: #FEFCE8;
+}
+.doc-cell.editable.empty::before {
+  content: attr(data-placeholder);
+  color: #C4B5A0;
+  font-size: 8.5pt;
+  pointer-events: none;
+  opacity: 0.7;
+}
+.doc-cell.editable.filled {
+  background: #ECFDF5;
+}
+.doc-cell.editable:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: -1px;
+  background: #fff;
+}
+
+/* ── Colon field: label + editable value ── */
+.colon-field-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+.doc-cell.colon-field .cell-label {
+  font-weight: 500;
+  white-space: nowrap;
+}
+.doc-cell.colon-field .cell-value {
+  flex: 1;
+  min-width: 30px;
+  outline: none;
+  border-bottom: 1.5px dashed #C4B5A0;
+  padding: 0 4px;
+  transition: all 0.15s;
+}
+.doc-cell.colon-field .cell-value:focus {
+  border-bottom-color: var(--primary);
+  border-bottom-style: solid;
+  background: #fff;
+}
+.doc-cell.colon-field .cell-value.filled {
+  border-bottom-color: var(--success);
+  border-bottom-style: solid;
+  background: #ECFDF5;
+  border-radius: 2px;
+}
+
+/* 字段填充闪烁动画 */
+@keyframes fieldFlash {
+  0% { background: #FEF3C7; box-shadow: 0 0 0 2px #F59E0B; }
+  50% { background: #FEF3C7; }
+  100% { background: transparent; box-shadow: none; }
+}
+.field-flash {
+  animation: fieldFlash 1.2s ease-out;
+}
+.cell-value.field-flash {
+  animation: fieldFlash 1.2s ease-out;
+}
+
+/* Multi-line colon fields */
+.doc-cell.colon-field.multi-line .colon-field-inner {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+.doc-cell.colon-field.multi-line .colon-line {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* ── Generating overlay (preserves preview underneath) ── */
+.generating-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 6px;
+}
+.generating-overlay .spinner {
+  width: 28px; height: 28px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+.generating-overlay p {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* ── Progress bar ── */
+.fill-progress {
+  margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+#headerProgress {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+#headerProgress .bar-track {
+  width: 80px; height: 5px; background: #E5E7EB; border-radius: 3px; overflow: hidden;
+}
+#headerProgress .bar-fill {
+  height: 100%; background: var(--success); border-radius: 3px; transition: width 0.3s;
+}
+.fill-progress .bar-text { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+
+/* ── Submit button ── */
+.submit-edits-btn {
+  display: block; width: 100%;
+  padding: 9px; margin-top: 16px;
+  background: var(--primary); color: #fff;
+  border: none; border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: background 0.15s;
+  font-family: inherit;
+}
+.submit-edits-btn:hover { background: var(--primary-light); }
+.submit-edits-btn:disabled { background: #D1D5DB; cursor: not-allowed; }
+
+/* Generating spinner */
+.generating { display: flex; flex-direction: column; align-items: center; gap: 16px; margin-top: 100px; }
+.generating .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.generating p { font-size: 13px; color: var(--text-secondary); }
+
+/* Document Done Card */
+.doc-done-card {
+  background: var(--surface); border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  width: 100%; max-width: 480px; padding: 40px; text-align: center;
+}
+.doc-done-card .done-icon {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--success-bg);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+}
+.doc-done-card .done-icon svg { width: 22px; height: 22px; color: var(--success); }
+.doc-done-card h4 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.doc-done-card p { color: var(--text-secondary); font-size: 12.5px; }
+.doc-done-card .dl-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 18px; padding: 10px 24px;
+  background: var(--primary); color: #fff;
+  border-radius: var(--radius-sm); text-decoration: none;
+  font-size: 13px; font-weight: 500; transition: background 0.15s;
+}
+.doc-done-card .dl-btn:hover { background: var(--primary-light); }
+.download-banner {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px;
+  background: var(--success-bg); border-radius: var(--radius-sm);
+  font-size: 12px; color: var(--success); font-weight: 500;
+}
+.download-banner .dl-btn {
+  padding: 2px 10px; font-size: 12px;
+  background: var(--primary); color: #fff; border-radius: var(--radius-sm);
+  text-decoration: none; white-space: nowrap; cursor: pointer; border: none;
+}
+.download-banner .dl-btn:hover { background: var(--primary-light); }
+.doc-done-card .checks {
+  margin-top: 18px; text-align: left;
+  background: var(--success-bg); border-radius: var(--radius-sm);
+  padding: 12px 16px; font-size: 12px; color: var(--success); line-height: 2;
+}
+
+/* Template select table */
+.template-table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+.template-table th { background: #F9FAFB; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 14px; }
+.template-table td { padding: 12px; border-bottom: 1px solid var(--border-light); font-size: 13px; }
+.template-table tr:last-child td { border-bottom: none; }
+.template-table .tpl-link { color: var(--primary); cursor: pointer; font-weight: 500; transition: color 0.15s; }
+.template-table .tpl-link:hover { color: var(--primary-light); }
+
+/* Upload drop zone */
+.upload-drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 48px; text-align: center; cursor: pointer; transition: all 0.2s; width: 100%; max-width: 460px; }
+.upload-drop-zone:hover, .upload-drop-zone.dragover { border-color: var(--primary); background: var(--primary-lighter); }
+.upload-drop-zone .icon { font-size: 36px; margin-bottom: 12px; opacity: 0.35; }
+.upload-drop-zone p { font-size: 13px; color: var(--text-secondary); }
+.upload-drop-zone .hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+
+@media (max-width: 900px) {
+  .app { flex-direction: column; }
+  .chat-panel { width: 100%; height: 55vh; min-width: auto; }
+  .preview-panel { height: 45vh; }
+  .doc-page { padding: 24px 20px; }
+}
+
+/* ── Prefill Review Panel ── */
+.prefill-review {
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+.prefill-review .review-header {
+  margin-bottom: 16px;
+}
+.prefill-review .review-header h4 {
+  font-size: 15px; font-weight: 600; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px;
+}
+.prefill-review .review-stats {
+  display: flex; gap: 12px; align-items: center; margin-bottom: 12px;
+}
+.prefill-review .stat-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;
+}
+.prefill-review .stat-badge.confirmed { background: #ECFDF5; color: #059669; }
+.prefill-review .stat-badge.review { background: #FFFBEB; color: #D97706; }
+.prefill-review .stat-badge.empty { background: #F3F4F6; color: #6B7280; }
+.prefill-review .progress-bar-track {
+  height: 6px; background: #E5E7EB; border-radius: 3px; overflow: hidden;
+}
+.prefill-review .progress-bar-fill {
+  height: 100%; border-radius: 3px; transition: width 0.4s ease;
+  background: linear-gradient(90deg, var(--success), #34D399);
+}
+
+.prefill-review .field-group {
+  margin-top: 14px;
+}
+.prefill-review .field-group-title {
+  font-size: 12px; font-weight: 600; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  margin-bottom: 8px; padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-light);
+}
+.prefill-review .field-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; margin-bottom: 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  background: var(--surface);
+  transition: border-color 0.15s;
+}
+.prefill-review .field-card:hover {
+  border-color: var(--primary-light);
+}
+.prefill-review .field-card.confirmed { border-left: 3px solid #059669; }
+.prefill-review .field-card.review { border-left: 3px solid #D97706; }
+.prefill-review .field-card.empty { border-left: 3px solid #D1D5DB; }
+
+.prefill-review .field-label {
+  font-size: 13px; font-weight: 500; min-width: 100px; flex-shrink: 0;
+  color: var(--text);
+}
+.prefill-review .field-value {
+  flex: 1;
+}
+.prefill-review .field-value input,
+.prefill-review .field-value select {
+  width: 100%; padding: 4px 8px;
+  border: 1px solid var(--border); border-radius: 4px;
+  font-size: 13px; font-family: inherit;
+  background: var(--surface);
+}
+.prefill-review .field-value input:focus,
+.prefill-review .field-value select:focus {
+  outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,0.1);
+}
+.prefill-review .field-value input.confirmed-input {
+  background: #F0FDF4; border-color: #A7F3D0;
+}
+.prefill-review .field-value input.review-input {
+  background: #FFFBEB; border-color: #FDE68A;
+}
+.prefill-review .field-value input.empty-input {
+  background: #F9FAFB; border-color: #E5E7EB;
+}
+.prefill-review .field-confidence {
+  font-size: 11px; color: var(--text-muted); white-space: nowrap; min-width: 40px; text-align: right;
+}
+.prefill-review .field-source {
+  font-size: 11px; color: var(--text-muted); white-space: nowrap;
+}
+
+.prefill-review .review-actions {
+  display: flex; gap: 10px; margin-top: 18px; padding-top: 14px;
+  border-top: 1px solid var(--border-light);
+}
+.prefill-review .review-actions button {
+  padding: 9px 20px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface);
+  transition: all 0.15s; font-family: inherit;
+}
+.prefill-review .review-actions button:hover {
+  border-color: var(--primary-light); color: var(--primary);
+}
+.prefill-review .review-actions button.primary {
+  background: var(--primary); color: #fff; border-color: var(--primary);
+}
+.prefill-review .review-actions button.primary:hover {
+  background: var(--primary-light);
+}
+.prefill-review .review-actions button:disabled {
+  background: #D1D5DB; color: #fff; border-color: #D1D5DB; cursor: not-allowed;
+}
+
+/* ============= 人机协同全屏审核模式 ============= */
+.app.cofill-mode .chat-panel { display: none; }
+.app.cofill-mode .preview-panel { display: none; }
+.app.cofill-mode .cofill-view { display: flex; }
+
+.cofill-view {
+  display: none; width: 100%; height: 100vh;
+  flex-direction: column; background: var(--bg);
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1000;
+}
+.cofill-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.cofill-header .left { display: flex; align-items: center; gap: 12px; }
+.cofill-header .mode-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff;
+  padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
+}
+.cofill-header .step-text { font-size: 13px; color: var(--text-secondary); }
+.cofill-header .exit-btn {
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 16px; font-size: 13px; cursor: pointer; color: var(--text-secondary);
+  transition: all 0.15s;
+}
+.cofill-header .exit-btn:hover { border-color: #ef4444; color: #ef4444; }
+
+.cofill-body { display: flex; flex: 1; overflow: hidden; }
+
+/* 左侧：字段审核面板 */
+.cofill-fields {
+  width: 420px; min-width: 340px; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; background: #fafbfc;
+}
+.cofill-fields-header {
+  padding: 16px 20px 12px; border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+.cofill-fields-header h3 { font-size: 15px; font-weight: 600; margin: 0 0 8px; }
+.cofill-progress {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+}
+.cofill-progress .bar-track {
+  flex: 1; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;
+}
+.cofill-progress .bar-fill {
+  height: 100%; border-radius: 4px; transition: width 0.3s;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+.cofill-progress .pct { font-size: 13px; font-weight: 600; color: #16a34a; min-width: 40px; text-align: right; }
+.cofill-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+.cofill-badges .badge {
+  font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500;
+}
+.cofill-badges .badge.green { background: #dcfce7; color: #15803d; }
+.cofill-badges .badge.yellow { background: #fef9c3; color: #a16207; }
+.cofill-badges .badge.gray { background: #f3f4f6; color: #6b7280; }
+
+.cofill-fields-body { flex: 1; overflow-y: auto; padding: 12px 16px; }
+.cofill-field-group-title {
+  font-size: 12px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--text-secondary); margin: 12px 0 8px; padding: 0 4px;
+}
+
+.cofill-field-card {
+  background: #fff; border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 10px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.cofill-field-card:hover { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(99,102,241,0.08); }
+.cofill-field-card.confirmed { border-left: 3px solid #22c55e; }
+.cofill-field-card.review { border-left: 3px solid #f59e0b; }
+.cofill-field-card.empty { border-left: 3px solid #d1d5db; }
+
+.cofill-field-card .dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.cofill-field-card.confirmed .dot { background: #22c55e; }
+.cofill-field-card.review .dot { background: #f59e0b; }
+.cofill-field-card.empty .dot { background: #d1d5db; }
+
+.cofill-field-card .field-body { flex: 1; min-width: 0; }
+.cofill-field-card .field-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+.cofill-field-card .field-label .source-tag {
+  font-size: 10px; background: #f0f0f0; padding: 1px 6px; border-radius: 3px;
+  margin-left: 6px; color: #888;
+}
+.cofill-field-card input {
+  width: 100%; border: 1px solid var(--border); border-radius: 4px;
+  padding: 5px 8px; font-size: 13px; outline: none;
+  transition: border-color 0.15s;
+}
+.cofill-field-card input:focus { border-color: var(--primary); }
+.cofill-field-card.confirmed input { background: #f0fdf4; }
+.cofill-field-card.review input { background: #fffbeb; }
+.cofill-field-card.empty input { background: #f9fafb; color: var(--text-secondary); }
+
+.cofill-field-card .conf-badge {
+  font-size: 10px; padding: 1px 6px; border-radius: 3px;
+  white-space: nowrap; flex-shrink: 0;
+}
+.cofill-field-card.confirmed .conf-badge { background: #dcfce7; color: #15803d; }
+.cofill-field-card.review .conf-badge { background: #fef9c3; color: #a16207; }
+
+/* 底部操作栏 */
+.cofill-footer {
+  padding: 14px 20px; border-top: 1px solid var(--border);
+  background: #fff; display: flex; gap: 10px; align-items: center;
+}
+.cofill-footer .spacer { flex: 1; }
+.cofill-footer button {
+  padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 500;
+  border: 1px solid var(--border); background: #fff; cursor: pointer;
+  transition: all 0.15s;
+}
+.cofill-footer button:hover { background: #f9fafb; }
+.cofill-footer button.primary-btn {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff;
+  border: none; box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+}
+.cofill-footer button.primary-btn:hover { box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
+.cofill-footer button.primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 右侧：文档预览 */
+.cofill-preview {
+  flex: 1; display: flex; flex-direction: column; background: #e5e7eb;
+}
+.cofill-preview-header {
+  padding: 10px 20px; background: #fff; border-bottom: 1px solid var(--border);
+  font-size: 13px; color: var(--text-secondary);
+  display: flex; align-items: center; gap: 8px;
+}
+.cofill-preview-body {
+  flex: 1; overflow: auto; padding: 20px;
+  display: flex; justify-content: center;
+}
+.cofill-preview-body .doc-container {
+  background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  max-width: 800px; width: 100%; min-height: 600px; padding: 30px;
+}
+
+/* 协同模式 - 步骤引导 */
+.cofill-step-guide {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 60px 40px; text-align: center; height: 100%;
+}
+.cofill-step-guide .step-icon {
+  width: 80px; height: 80px; border-radius: 50%; background: #f0f0ff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px; margin-bottom: 20px;
+}
+.cofill-step-guide h3 { font-size: 18px; margin: 0 0 8px; color: var(--text-primary); }
+.cofill-step-guide p { font-size: 14px; color: var(--text-secondary); max-width: 400px; line-height: 1.6; }
+.cofill-step-guide .step-actions { margin-top: 24px; display: flex; gap: 12px; }
+.cofill-step-guide .step-actions button {
+  padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 500;
+  cursor: pointer; border: 1px solid var(--border); background: #fff;
+  transition: all 0.15s;
+}
+.cofill-step-guide .step-actions button:hover { background: #f5f5ff; border-color: var(--primary); }
+.cofill-step-guide .step-actions button.primary {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; border: none;
+}
+
+/* 加载态 */
+.cofill-loading {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 60px 20px; gap: 16px; height: 100%;
+}
+.cofill-loading .spinner {
+  width: 40px; height: 40px;
+  border: 3px solid #e5e7eb; border-top-color: #6366f1;
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+.cofill-loading p { font-size: 14px; color: var(--text-secondary); }
+.cofill-loading .sub { font-size: 12px; color: #9ca3af; }
+
+/* Prefill loading - legacy (keep for backward compat) */
+.prefill-loading {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 60px 20px; gap: 16px;
+}
+.prefill-loading .spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border); border-top-color: var(--primary);
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+.prefill-loading p { font-size: 13px; color: var(--text-secondary); }
+
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="chat-panel">
+    <div class="chat-header">
+      <div class="avatar">文</div>
+      <div class="info">
+        <h2>教务文档生成</h2>
+        <p>自动填写工具</p>
+      </div>
+    </div>
+
+    <div class="steps-bar" id="stepsBar">
+      <div class="step">选择模板</div>
+      <div class="step">识别字段</div>
+      <div class="step">信息收集</div>
+      <div class="step">核对确认</div>
+      <div class="step">生成文档</div>
+    </div>
+
+    <div class="chat-messages" id="chatMessages"></div>
+
+    <div class="func-panel">
+      <div class="func-grid">
+        <button class="func-btn" id="funcAutoFill" onclick="startAutoFill()">
+          <span class="func-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span>
+          <span class="func-text"><span class="title">内置模板</span><span class="desc">选择预设模板生成</span></span>
+        </button>
+        <button class="func-btn" id="funcUploadTpl" onclick="triggerTemplateUpload()">
+          <span class="func-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg></span>
+          <span class="func-text"><span class="title">上传模板</span><span class="desc">上传docx自动识别</span></span>
+        </button>
+        <button class="func-btn" id="funcCoFill" onclick="startCoFill()">
+          <span class="func-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
+          <span class="func-text"><span class="title">人机协同填写</span><span class="desc">AI预填+人工审核</span></span>
+        </button>
+        <button class="func-btn" id="funcUpload" onclick="triggerUpload()">
+          <span class="func-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></span>
+          <span class="func-text"><span class="title">知识文件上传</span><span class="desc">支持多文件批量提取</span></span>
+        </button>
+      </div>
+      <input type="file" id="templateFileInput" accept=".docx,.doc" style="display:none" onchange="handleTemplateUpload(event)" />
+    </div>
+
+    <div class="chat-input">
+      <div class="upload-btn" title="上传文件（支持多选）">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+        <input type="file" id="fileInput" accept=".docx,.doc,.pdf,.xlsx,.xls,.csv,.txt" multiple onchange="handleFileUpload(event)" />
+      </div>
+      <textarea id="userInput" rows="1" placeholder="输入信息或上传文件（支持多选）..." onkeydown="handleKeydown(event)" oninput="autoResize(this)"></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="preview-panel">
+    <div class="preview-header">
+      <div class="title-area">
+        <h3 id="previewTitle">文档预览</h3>
+      </div>
+      <div class="actions" id="previewActions" style="display:none;">
+        <button onclick="downloadDoc()">下载</button>
+        <button onclick="printDoc()" class="print-btn">打印</button>
+      </div>
+    </div>
+    <div class="preview-body" id="previewBody">
+      <div class="empty-state">
+        <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div>
+        <h4>文档预览区</h4>
+        <p>选择模板后，原始文档将在此显示，您可以在此直接填写信息。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 人机协同填写 - 全屏审核视图 -->
+  <div class="cofill-view" id="cofillView">
+    <div class="cofill-header">
+      <div class="left">
+        <span class="mode-badge">🤝 人机协同</span>
+        <span class="step-text" id="cofillStepText">选择模板</span>
+      </div>
+      <button class="exit-btn" onclick="exitCoFill()">✕ 退出协同模式</button>
+    </div>
+    <div class="cofill-body">
+      <!-- 左侧：字段审核面板 -->
+      <div class="cofill-fields" id="cofillFields">
+        <div class="cofill-fields-header">
+          <h3 id="cofillFieldsTitle">字段审核</h3>
+          <div class="cofill-progress" id="cofillProgress" style="display:none">
+            <div class="bar-track"><div class="bar-fill" id="cofillBarFill" style="width:0%"></div></div>
+            <span class="pct" id="cofillPct">0%</span>
+          </div>
+          <div class="cofill-badges" id="cofillBadges" style="display:none"></div>
+        </div>
+        <div class="cofill-fields-body" id="cofillFieldsBody">
+          <!-- 动态填充：步骤引导 / 字段卡片 -->
+        </div>
+        <div class="cofill-footer" id="cofillFooter" style="display:none">
+          <button onclick="exitCoFill()">取消</button>
+          <button onclick="sendPrefillToAgent()">交给AI继续</button>
+          <div class="spacer"></div>
+          <button class="primary-btn" id="cofillSubmitBtn" onclick="submitPrefillReview()">确认并生成</button>
+        </div>
+      </div>
+      <!-- 右侧：文档预览 -->
+      <div class="cofill-preview">
+        <div class="cofill-preview-header">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+          <span id="cofillPreviewTitle">文档预览</span>
+        </div>
+        <div class="cofill-preview-body" id="cofillPreviewBody">
+          <div class="doc-container" id="cofillDocContainer">
+            <!-- 动态填充 -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── State ──
+let sessionId = localStorage.getItem('doc_session_id');
+if (!sessionId) {
+  sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
+  localStorage.setItem('doc_session_id', sessionId);
+}
+let isStreaming = false;
+let currentDownloadUrl = '';
+let currentTemplate = '';
+let currentTemplatePath = '';  // 当前模板文件路径（用于获取预览）
+let currentDocxPath = '';      // 已生成的docx文件路径（用于打印PDF）
+let currentStep = 0;
+let currentMode = '';
+let fieldData = {};            // field_id → value
+let labelToFields = {};        // label → [field_id, ...]  (从后端获取)
+let fieldMap = {};             // field_id → {label, table_idx, ...} (从后端获取)
+let docPreviewHtml = '';       // 后端返回的文档HTML
+let previewRendered = false;
+let manuallyEditedFields = {}; // 用户手动编辑过的字段
+
+// ── API ──
+function detectBaseUrl() {
+  const origin = window.location.origin;
+  if (origin.startsWith('file://')) return null;
+  return origin;
+}
+const BASE_URL = detectBaseUrl();
+const API_URL = BASE_URL ? BASE_URL + '/v1/chat/completions' : null;
+const UPLOAD_URL = BASE_URL ? BASE_URL + '/upload' : null;
+
+if (!BASE_URL || !API_URL) {
+  window.addEventListener('load', () => {
+    const body = document.getElementById('previewBody');
+    body.innerHTML = `
+      <div class="doc-done-card" style="border:2px solid #FDE68A;">
+        <h4>请通过 Web 服务访问</h4>
+        <p style="margin:12px 0;line-height:2;">
+          当前为静态文件预览，无法连接后端服务。<br>
+          请在平台点击「部署」，通过部署链接打开此页面。
+        </p>
+      </div>`;
+    document.getElementById('userInput').disabled = true;
+    document.getElementById('sendBtn').disabled = true;
+  });
+}
+
+function autoResize(ta) {
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(ta.scrollHeight, 100) + 'px';
+}
+
+// ── Send Message ──
+async function sendMessage(text) {
+  if (!API_URL) { alert('请通过部署后的 Web 服务 URL 访问。'); return; }
+  const input = document.getElementById('userInput');
+  const msg = text || input.value.trim();
+  if (!msg || isStreaming) return;
+  if (!text) { input.value = ''; input.style.height = 'auto'; }
+  appendMessage('user', msg);
+
+  // 检测用户消息中的模板关键词，立即加载预览
+  const tplKeywords = ['评价报告', '试卷分析', '关联矩阵'];
+  for (const kw of tplKeywords) {
+    if (msg.includes(kw) && currentTemplate !== kw) {
+      currentTemplate = kw;
+      currentTemplatePath = kw;
+      fetchDocPreview(kw);
+      break;
+    }
+  }
+
+  await callAgent(msg);
+}
+
+function handleKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+// ── Append Message ──
+function appendMessage(role, content, extra) {
+  const container = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  const icon = role === 'assistant' ? '文' : '我';
+  let bubbleHtml = escapeHtml(content);
+  if (extra) bubbleHtml += extra;
+  div.innerHTML = `<div class="avatar-icon">${icon}</div><div class="bubble">${bubbleHtml}</div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+function createStreamingMessage() {
+  const container = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'msg assistant';
+  div.innerHTML = `<div class="avatar-icon">文</div><div class="bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+// ── Call Agent ──
+async function callAgent(userText) {
+  isStreaming = true;
+  document.getElementById('sendBtn').disabled = true;
+
+  const msgDiv = createStreamingMessage();
+  const bubble = msgDiv.querySelector('.bubble');
+
+  try {
+    const resp = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'agent',
+        messages: [{ role: 'user', content: userText }],
+        stream: true,
+        session_id: sessionId,
+      }),
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let buffer = '';
+    let lastFieldCheckLen = 0;
+    let inFieldsBlock = false;   // 是否正在 [FIELDS] 块中
+    let lastFieldLineLen = 0;    // 上次解析 [FIELDS] 行时的文本长度
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') break;
+        try {
+          const json = JSON.parse(data);
+          const delta = json.choices?.[0]?.delta;
+          if (!delta) continue;
+
+          if (delta.role === 'tool' && delta.content) {
+            // 解析工具结果，优先使用精确 field_id 回填，其次再用 label 回填
+            try {
+              const toolResult = JSON.parse(delta.content);
+              console.log('[preview] tool result keys:', Object.keys(toolResult));
+              if (toolResult.filled_field_values && typeof toolResult.filled_field_values === 'object') {
+                console.log('[preview] applying filled_field_values:', Object.keys(toolResult.filled_field_values).length, 'fields');
+                applyPreciseFieldValues(toolResult.filled_field_values);
+              }
+              if (toolResult.filled_data && typeof toolResult.filled_data === 'object') {
+                console.log('[preview] applying filled_data:', Object.keys(toolResult.filled_data).length, 'fields');
+                applyFilledData(toolResult.filled_data);
+              }
+              if (toolResult.local_path) {
+                currentDocxPath = toolResult.local_path;
+              }
+              // 工具返回后刷新预览文档（重新获取带值预览）
+              if (toolResult.local_path) {
+                refreshPreviewFromGeneratedDoc(toolResult.local_path);
+              }
+            } catch(e) { console.warn('[preview] tool result parse error:', e); }
+            continue;
+          }
+
+          if (delta.content) {
+            fullText += delta.content;
+
+            // 实时增量解析 [FIELDS] 块：每收到一行 key=value 立即更新预览
+            if (fullText.includes('[FIELDS]')) {
+              const afterFields = fullText.substring(fullText.indexOf('[FIELDS]') + 8);
+              const beforeClose = afterFields.includes('[/FIELDS]') ? afterFields.indexOf('[/FIELDS]') : afterFields.length;
+              const fieldsText = afterFields.substring(0, beforeClose);
+              if (fieldsText.length > lastFieldLineLen) {
+                lastFieldLineLen = fieldsText.length;
+                parseFieldsLines(fieldsText);
+              }
+            }
+
+            // 渲染时隐藏 [FIELDS]...[/FIELDS] 块
+            const displayText = fullText.replace(/\[FIELDS\][\s\S]*?\[\/FIELDS\]/g, '').trim();
+            bubble.innerHTML = renderMarkdown(displayText);
+            document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+
+            // 定期也检测非 FIELDS 格式的键值对
+            if (fullText.length - lastFieldCheckLen > 60) {
+              lastFieldCheckLen = fullText.length;
+              detectAndUpdateFields(fullText);
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
+    // 流结束后最终检测
+    detectAndUpdateFields(fullText);
+    postProcessResponse(fullText);
+
+  } catch (err) {
+    bubble.innerHTML = `<span style="color:var(--danger);">请求失败: ${escapeHtml(err.message)}</span>`;
+  } finally {
+    isStreaming = false;
+    document.getElementById('sendBtn').disabled = false;
+    document.getElementById('userInput').focus();
+  }
+}
+
+// ── Incrementally parse [FIELDS] block lines and update preview ──
+function parseFieldsLines(fieldsText) {
+  const lines = fieldsText.split('\n');
+  for (const line of lines) {
+    const eqIdx = line.indexOf('=');
+    if (eqIdx > 0) {
+      const key = line.substring(0, eqIdx).trim();
+      const val = line.substring(eqIdx + 1).trim();
+      if (key && val) {
+        // 优先用 field_id 精确匹配
+        if (fieldMap[key]) {
+          updateFieldById(key, val);
+        } else {
+          updateFieldByLabel(key, val);
+        }
+      }
+    }
+  }
+}
+
+// ── Refresh preview from a generated docx (update cell values in existing preview) ──
+async function refreshPreviewFromGeneratedDoc(localPath) {
+  // 从生成的 docx 获取填写后的数据，更新现有预览中的单元格值
+  // 不替换整个 HTML，保留 editable 结构和 data-field-id 属性
+  try {
+    const res = await fetch('/generated-preview?local_path=' + encodeURIComponent(localPath));
+    const data = await res.json();
+    if (data.success) {
+      // 使用 field_map 中的 existing_value 精确更新每个已填单元格
+      if (data.field_map) {
+        for (const [fieldId, info] of Object.entries(data.field_map)) {
+          const existingValue = info.existing_value;
+          if (existingValue && String(existingValue).trim()) {
+            // 查找当前预览中的对应元素并更新
+            const els = document.querySelectorAll('[data-field-id="' + CSS.escape(fieldId) + '"]');
+            for (const el of els) {
+              if (el.classList.contains('cell-value')) {
+                el.textContent = existingValue;
+                el.classList.add('filled');
+                el.classList.remove('empty');
+              } else if (el.classList.contains('editable')) {
+                el.textContent = existingValue;
+                el.classList.remove('empty');
+                el.classList.add('filled');
+              }
+            }
+          }
+        }
+        // 注意：填充后文档的 field_map 可能不完整（已填值的单元格不再被识别为可填字段），
+        // 因此不能直接用 Object.assign 覆盖 fieldMap，只更新已有条目的 existing_value
+        for (const [fid, info] of Object.entries(data.field_map)) {
+          if (fieldMap[fid]) {
+            fieldMap[fid].existing_value = info.existing_value || '';
+          }
+        }
+      }
+      // label_to_fields 同样不覆盖，保留原始模板的完整映射
+      console.log('[preview] refreshPreviewFromGeneratedDoc: updated field values from generated doc');
+    }
+  } catch(e) {
+    console.warn('[preview] refreshPreviewFromGeneratedDoc failed:', e);
+  }
+}
+
+// ── Apply precise field_id -> value result from tool ──
+function applyPreciseFieldValues(fieldValues) {
+  if (!fieldValues || typeof fieldValues !== 'object') return;
+  let updatedCount = 0;
+  for (const [fieldId, value] of Object.entries(fieldValues)) {
+    if (value && String(value).trim()) {
+      const strVal = String(value);
+      // 1. 先用 field_id 精确匹配
+      if (fieldMap[fieldId]) {
+        updateFieldById(fieldId, strVal);
+        updatedCount++;
+      } else {
+        // 2. field_id 不在 fieldMap 中，直接尝试 DOM 查找
+        updateCellInPreview(fieldId, strVal);
+        updatedCount++;
+      }
+    }
+  }
+  console.log('[preview] applyPreciseFieldValues: updated', updatedCount, '/', Object.keys(fieldValues).length, 'fields');
+}
+
+// ── Apply label -> value result from tool (fallback) ──
+function applyFilledData(filledData) {
+  if (!filledData || typeof filledData !== 'object') return;
+  for (const [label, value] of Object.entries(filledData)) {
+    if (value && String(value).trim()) {
+      updateFieldByLabel(label, String(value));
+    }
+  }
+}
+
+// ── Detect field values from agent text & update document preview ──
+function detectAndUpdateFields(text) {
+  // 1. 优先解析 [FIELDS]...[/FIELDS] 格式（完整块）
+  const fieldsBlock = text.match(/\[FIELDS\]([\s\S]*?)\[\/FIELDS\]/);
+  if (fieldsBlock) {
+    parseFieldsLines(fieldsBlock[1]);
+  } else if (text.includes('[FIELDS]')) {
+    // 增量：[FIELDS] 已开始但 [/FIELDS] 还没到
+    const afterFields = text.substring(text.indexOf('[FIELDS]') + 8);
+    parseFieldsLines(afterFields);
+  }
+
+  // 2. 去掉 markdown 加粗标记和 [FIELDS] 块
+  const clean = text.replace(/\*\*/g, '').replace(/\[FIELDS\][\s\S]*?\[\/FIELDS\]/g, '');
+
+  // 3. 匹配多种格式：
+  // "字段：值" 或 "字段: 值" 或 "- 字段：值" 或 "1. 字段：值"
+  const kvMatches = clean.matchAll(/(?:^|\n|[-–·•]\s*|\d+[.、)\]]\s*)([^\n：:]{1,30})[：:]\s*([^\n]+)/g);
+  for (const m of kvMatches) {
+    const key = m[1].trim().replace(/^[\s\-–·•\d.、)\]]+/,'').trim();
+    const val = m[2].trim();
+    if (key && val && key.length >= 2 && key.length < 20 && val.length < 200) {
+      updateFieldByLabel(key, val);
+    }
+  }
+
+  // 4. 匹配 key=value 格式
+  const eqMatches = clean.matchAll(/(\S{2,15})\s*[=＝]\s*([^,，\n]+)/g);
+  for (const m of eqMatches) {
+    const key = m[1].trim();
+    const val = m[2].trim();
+    if (key && val && val.length < 200) {
+      updateFieldByLabel(key, val);
+    }
+  }
+}
+
+// ── Update a field in the document preview by label name ──
+function updateFieldByLabel(label, value) {
+  const normalizedLabel = label.replace(/\s+/g, '');
+
+  // 1. 精确匹配
+  let fids = labelToFields[label];
+  if (!fids || fids.length === 0) {
+    for (const [key, ids] of Object.entries(labelToFields)) {
+      if (key.replace(/\s+/g, '') === normalizedLabel) {
+        fids = ids;
+        break;
+      }
+    }
+  }
+  if (fids && fids.length > 0) {
+    for (const fid of fids) {
+      updateFieldById(fid, value);
+    }
+    return;
+  }
+
+  // 2. 前缀匹配：如 label="课程目标1"，匹配 "课程目标1_1", "课程目标1_2" 等
+  // 值可能是逗号分隔的多个子字段值
+  const prefixKey = label + '_';
+  const subFids = [];
+  for (const [k, v] of Object.entries(labelToFields)) {
+    if (k.startsWith(prefixKey)) {
+      subFids.push(...v);
+    }
+  }
+  if (subFids.length > 0) {
+    // 按字段名排序（数字顺序）
+    const subLabels = Object.entries(labelToFields)
+      .filter(([k]) => k.startsWith(prefixKey))
+      .sort((a, b) => {
+        const na = parseInt(a[0].replace(prefixKey, '').replace('第','').replace('列',''));
+        const nb = parseInt(b[0].replace(prefixKey, '').replace('第','').replace('列',''));
+        return (isNaN(na) ? 999 : na) - (isNaN(nb) ? 999 : nb);
+      });
+    
+    // 拆分值：支持逗号、中文逗号、空格分隔
+    const values = value.split(/[,，\s]+/).filter(v => v.trim());
+    
+    for (let i = 0; i < subLabels.length; i++) {
+      const val = i < values.length ? values[i].trim() : '';
+      for (const fid of subLabels[i][1]) {
+        updateFieldById(fid, val);
+      }
+    }
+    return;
+  }
+}
+
+// ── Update a field in the document preview by exact field_id ──
+function updateFieldById(fieldId, value) {
+  fieldData[fieldId] = value;
+  updateCellInPreview(fieldId, value);
+}
+
+// ── Update a cell in the document preview by field_id ──
+function updateCellInPreview(fieldId, value) {
+  // 查找带 data-field-id 的元素
+  const els = document.querySelectorAll(`[data-field-id="${CSS.escape(fieldId)}"]`);
+  for (const el of els) {
+    // 如果用户正在编辑这个元素，跳过
+    if (document.activeElement === el) continue;
+
+    if (el.classList.contains('cell-value')) {
+      // 冒号字段的可编辑 span —— 直接设置文本
+      el.textContent = value;
+      el.classList.toggle('filled', !!value.trim());
+    } else if (el.classList.contains('editable')) {
+      // 整格可编辑的 td 直接更新可见文本，避免预览层二次猜测 Word 内部结构
+      el.textContent = value;
+      el.classList.remove('empty');
+      el.classList.toggle('filled', !!value.trim());
+    }
+
+    // 高亮动画：字段被填充时闪烁
+    if (value.trim()) {
+      el.classList.remove('field-flash');
+      // 触发 reflow 以重新启动动画
+      void el.offsetWidth;
+      el.classList.add('field-flash');
+    }
+  }
+  // 更新进度条
+  refreshProgressBar();
+}
+
+// ── Post-process Response ──
+function postProcessResponse(text) {
+  const urlMatch = text.match(/https?:\/\/[^\s"<>]+\.docx[^\s"<>]*/);
+  if (urlMatch) {
+    currentDownloadUrl = urlMatch[0];
+    currentStep = 5; updateStepBar();
+    updatePreview('done');
+    document.getElementById('previewActions').style.display = 'flex';
+    return;
+  }
+
+  if (text.includes('评价报告') && (text.includes('试卷分析') || text.includes('关联矩阵')) && currentStep === 0) {
+    currentStep = 1; updatePreview('template-select');
+  }
+
+  // 检测模板选择，自动加载文档预览
+  const tplKeywords = ['评价报告', '试卷分析', '关联矩阵'];
+  for (const kw of tplKeywords) {
+    if (text.includes(kw) && currentTemplate !== kw) {
+      currentTemplate = kw;
+      currentTemplatePath = kw;
+      fetchDocPreview(kw);  // 自动加载右侧文档预览
+      break;
+    }
+  }
+  if ((text.includes('评价报告') || text.includes('试卷分析') || text.includes('关联矩阵')) && currentStep === 1) {
+    const tplMatch = text.match(/(评价报告|试卷分析|关联矩阵)/);
+    if (tplMatch) currentTemplate = tplMatch[1];
+  }
+
+  if (text.includes('识别到') && text.includes('字段') && currentStep === 0) {
+    currentStep = 1; updateStepBar();
+    const tplFileMatch = text.match(/模板[：:]?\s*(\S+\.docx?)/);
+    if (tplFileMatch) currentTemplate = tplFileMatch[1];
+  }
+
+  if (text.includes('请填写') || text.includes('请提供') || text.includes('请输入')) {
+    if (currentStep < 2) currentStep = 2;
+    updatePreview('collecting');
+  }
+
+  if (text.includes('核对') || text.includes('确认')) {
+    if (currentStep < 3) currentStep = 3;
+    updatePreview('confirm');
+  }
+
+  if (text.includes('正在') && (text.includes('生成') || text.includes('渲染'))) {
+    currentStep = 4; updatePreview('generating');
+  }
+
+  if (text.includes('缺少') || text.includes('缺失') || text.includes('未提供')) {
+    highlightUploadBtn();
+  }
+
+  updateStepBar();
+}
+
+function updateStepBar() {
+  const bar = document.getElementById('stepsBar');
+  const items = bar.querySelectorAll('.step');
+  items.forEach((el, i) => {
+    el.className = 'step';
+    if (i < currentStep) el.classList.add('done');
+    else if (i === currentStep) el.classList.add('active');
+  });
+}
+
+// ── Fetch document preview from backend ──
+async function fetchDocPreview(templatePath) {
+  if (!BASE_URL) {
+    console.warn('fetchDocPreview: BASE_URL not set, skipping');
+    return;
+  }
+  try {
+    const url = `${BASE_URL}/template-preview?path=${encodeURIComponent(templatePath)}`;
+    console.log('fetchDocPreview: fetching', url);
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      console.warn('fetchDocPreview: HTTP', resp.status, await resp.text());
+      return;
+    }
+    const result = await resp.json();
+    console.log('fetchDocPreview: result success=', result.success, 'html_len=', (result.html||'').length);
+    if (result.success) {
+      docPreviewHtml = result.html;
+      fieldMap = result.field_map || {};
+      labelToFields = result.label_to_fields || {};
+      renderDocPreview();
+    }
+  } catch (e) {
+    console.error('fetchDocPreview failed:', e);
+  }
+}
+
+// ── Render document preview ──
+function renderDocPreview() {
+  const body = document.getElementById('previewBody');
+  if (!docPreviewHtml) return;
+
+  // 计算填写进度
+  const totalFields = Object.keys(fieldMap).length;
+  let filledCount = 0;
+  for (const fid in fieldMap) {
+    if (fieldData[fid] && fieldData[fid].trim()) filledCount++;
+  }
+  const pct = totalFields > 0 ? Math.round(filledCount / totalFields * 100) : 0;
+
+  // 渲染顶部进度条
+  const headerProgress = document.getElementById('headerProgress');
+  if (headerProgress && totalFields > 0) {
+    headerProgress.innerHTML = `<div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${filledCount}/${totalFields} 已填写</span>`;
+    headerProgress.style.display = 'flex';
+  }
+
+  let html = `<div class="doc-page">`;
+
+  // Document HTML
+  html += docPreviewHtml;
+
+  // Submit button
+  html += `<button class="submit-edits-btn" id="submitEditsBtn" onclick="submitManualEdits()" ${isStreaming ? 'disabled' : ''}>提交手动填写</button>`;
+  html += `</div>`;
+
+  body.innerHTML = html;
+
+  // 同步更新协同模式的预览
+  if (prefillMode) {
+    const cofillContainer = document.getElementById('cofillDocContainer');
+    if (cofillContainer) cofillContainer.innerHTML = html;
+  }
+  previewRendered = true;
+}
+
+// ── Refresh progress bar only (no cell updates, no recursion) ──
+function refreshProgressBar() {
+  const totalFields = Object.keys(fieldMap).length;
+  let filledCount = 0;
+  for (const fid in fieldMap) {
+    if (fieldData[fid] && fieldData[fid].trim()) filledCount++;
+  }
+  const pct = totalFields > 0 ? Math.round(filledCount / totalFields * 100) : 0;
+  const barFill = document.querySelector('#headerProgress .bar-fill');
+  const barText = document.querySelector('#headerProgress .bar-text');
+  if (barFill) barFill.style.width = pct + '%';
+  if (barText) barText.textContent = `${filledCount}/${totalFields} 已填写`;
+}
+
+// ── Refresh field values without re-rendering the whole document ──
+function refreshFieldValues() {
+  refreshProgressBar();
+  // Update each field cell
+  for (const [fid, val] of Object.entries(fieldData)) {
+    updateCellInPreview(fid, val);
+  }
+}
+
+// ── Update Preview state ──
+function updatePreview(state) {
+  const body = document.getElementById('previewBody');
+  const title = document.getElementById('previewTitle');
+
+  switch(state) {
+    case 'template-select':
+      title.textContent = '选择模板';
+      // 如果已加载文档预览，不要覆盖
+      if (docPreviewHtml) {
+        refreshFieldValues();
+        break;
+      }
+      body.innerHTML = `
+        <div class="doc-page" style="max-width:520px;padding:36px;">
+          <h2>可选教务文档模板</h2>
+          <table class="template-table">
+            <tr><th style="width:50px;"></th><th>模板名称</th><th style="width:200px;">说明</th></tr>
+            <tr><td style="color:var(--text-muted);">1</td><td><span class="tpl-link" onclick="selectTemplate('评价报告')">评价报告</span></td><td style="color:var(--text-secondary);">专业课程目标达成度评价报告</td></tr>
+            <tr><td style="color:var(--text-muted);">2</td><td><span class="tpl-link" onclick="selectTemplate('试卷分析')">试卷分析</span></td><td style="color:var(--text-secondary);">试卷分析表（考勤+分数分布）</td></tr>
+            <tr><td style="color:var(--text-muted);">3</td><td><span class="tpl-link" onclick="selectTemplate('关联矩阵')">关联矩阵</span></td><td style="color:var(--text-secondary);">考题与课程目标关联矩阵</td></tr>
+          </table>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:12px;text-align:center;">点击模板名称或回复编号选择</p>
+        </div>`;
+      break;
+
+    case 'collecting':
+      title.textContent = `信息收集${currentTemplate ? ' · ' + currentTemplate : ''}`;
+      if (docPreviewHtml) {
+        refreshFieldValues();
+      }
+      break;
+
+    case 'confirm':
+      title.textContent = '核对确认';
+      if (docPreviewHtml) {
+        refreshFieldValues();
+      }
+      break;
+
+    case 'generating':
+      title.textContent = '生成中...';
+      // 不替换预览内容，仅叠加半透明遮罩+进度提示，保留已有字段填写状态
+      if (!body.querySelector('.generating-overlay')) {
+        const overlay = document.createElement('div');
+        overlay.className = 'generating-overlay';
+        overlay.innerHTML = '<div class="spinner"></div><p>正在生成文档...</p>';
+        const docPage = body.querySelector('.doc-page');
+        if (docPage) {
+          docPage.style.position = 'relative';
+          docPage.appendChild(overlay);
+        } else {
+          body.appendChild(overlay);
+        }
+      }
+      break;
+
+    case 'done':
+      title.textContent = '文档已生成';
+      // 移除生成中的遮罩
+      body.querySelectorAll('.generating-overlay').forEach(el => el.remove());
+      if (docPreviewHtml && currentDownloadUrl) {
+        // 保留文档预览，下载提示放在工具栏
+        const body = document.getElementById('previewBody');
+        // 移除可能残留的旧 download-banner
+        body.querySelectorAll('.download-banner').forEach(el => el.remove());
+        const actions = document.getElementById('previewActions');
+        actions.innerHTML = `
+          <div class="download-banner">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;"><path d="M5 13l4 4L19 7"/></svg>
+            <span>已完成</span>
+            <button onclick="downloadDoc()" class="dl-btn">下载Word</button>
+          </div>
+          <button onclick="printDoc()" class="print-btn">打印</button>
+        `;
+        actions.style.display = 'flex';
+      } else if (currentDownloadUrl) {
+        // 只有在预览区确实没有文档内容时才显示完成卡片
+        const existingDocPage = body.querySelector('.doc-page');
+        if (!existingDocPage) {
+          body.innerHTML = `
+            <div class="doc-done-card">
+              <div class="done-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg></div>
+              <h4>文档生成完成</h4>
+              <p>格式与模板一致</p>
+              <button onclick="downloadDoc()" class="dl-btn" style="cursor:pointer;border:none;">下载 Word 文档</button>
+              <div class="checks">
+                · 文档格式与模板一致<br>
+                · 所有字段已填入<br>
+                · 链接 24 小时内有效
+              </div>
+            </div>`;
+        }
+        document.getElementById('previewActions').style.display = 'flex';
+      } else {
+        // 无下载链接时，保留已有预览内容
+        const existingDocPage = body.querySelector('.doc-page');
+        if (!existingDocPage) {
+          body.innerHTML = `
+            <div class="doc-done-card">
+              <div class="done-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg></div>
+              <h4>文档生成完成</h4>
+              <p>文档正在上传，请稍候...</p>
+            </div>`;
+        }
+        document.getElementById('previewActions').style.display = 'none';
+      }
+      break;
+
+    default:
+      title.textContent = '文档预览';
+      body.innerHTML = `<div class="empty-state"><div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><h4>文档预览区</h4><p>选择模板后，原始文档将在此显示，您可以在此直接填写信息。</p></div>`;
+  }
+}
+
+// ── Select a built-in template ──
+async function selectTemplate(name) {
+  currentTemplate = name;
+  currentTemplatePath = name;  // 后端支持模板名作为 path
+  await fetchDocPreview(name);
+
+  if (prefillMode) {
+    // 协同模式：模板选好后进入步骤2
+    showCoFillStep('upload-knowledge');
+  } else {
+    sendMessage(name);
+  }
+}
+
+// ── Function 1: Built-in Templates ──
+async function startAutoFill() {
+  if (isStreaming) return;
+  currentMode = 'auto';
+  document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('funcAutoFill').classList.add('active');
+
+  if (currentStep === 0) {
+    appendMessage('user', '启动内置模板模式');
+    await callAgent('你好，我要使用内置模板生成教务文档，请展示可用模板');
+  } else {
+    appendMessage('user', '继续自动填写');
+    await callAgent('继续收集信息');
+  }
+}
+
+function triggerTemplateUpload() {
+  document.getElementById('templateFileInput').click();
+}
+
+async function handleTemplateUpload(event) {
+  if (!UPLOAD_URL) { alert('请通过部署后的 Web 服务 URL 访问。'); return; }
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = '';
+
+  const sizeStr = file.size < 1024*1024 ? (file.size/1024).toFixed(1)+'KB' : (file.size/1024/1024).toFixed(1)+'MB';
+  appendMessage('user', `上传了模板文件: ${file.name}（${sizeStr}）`);
+
+  if (!prefillMode) {
+    document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('funcUploadTpl').classList.add('active');
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const resp = await fetch(UPLOAD_URL.replace('/upload', '/upload-template'), { method: 'POST', body: formData });
+    if (!resp.ok) throw new Error(`上传失败 HTTP ${resp.status}`);
+    const result = await resp.json();
+
+    if (result.success) {
+      const templatePath = result.template_path || '';
+      currentTemplatePath = templatePath;
+
+      // 获取文档预览
+      await fetchDocPreview(templatePath);
+
+      if (prefillMode) {
+        // 协同模式：模板选好后进入步骤2
+        showCoFillStep('upload-knowledge');
+      } else {
+        // 普通模式：交给Agent分析
+        if (result.extracted_text) {
+          const agentMsg = `我上传了一个Word模板文件"${file.name}"，模板路径：${templatePath}。请先用analyze_uploaded_template工具分析这个模板路径，识别出所有需要填写的字段。如果工具调用失败，以下是文件内容作为参考：\n\n${result.extracted_text.substring(0, 5000)}`;
+          await callAgent(agentMsg);
+        } else if (templatePath) {
+          const agentMsg = `我上传了一个Word模板文件"${file.name}"，模板路径：${templatePath}，请用analyze_uploaded_template工具分析这个模板，识别出所有需要填写的字段。`;
+          await callAgent(agentMsg);
+        }
+      }
+    } else {
+      appendMessage('assistant', `模板解析失败：${result.error || '未知错误'}，请确保上传的是.docx格式的Word文件。`);
+    }
+  } catch (err) {
+    appendMessage('assistant', `模板上传失败：${escapeHtml(err.message)}，请检查网络后重试。`);
+  }
+}
+
+function startSelectFill() {}
+
+// ── Prefill review state ──
+let prefillData = null;      // 预填结果数据
+let prefillMode = false;     // 是否在协同填写模式
+
+async function startCoFill() {
+  if (isStreaming) return;
+  currentMode = 'cofill';
+  prefillMode = true;
+  document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('funcCoFill').classList.add('active');
+
+  // 进入全屏协同视图
+  document.querySelector('.app').classList.add('cofill-mode');
+
+  if (!currentTemplate && !currentTemplatePath) {
+    // 步骤1：选择模板
+    showCoFillStep('select-template');
+  } else {
+    // 已有模板，进入步骤2：上传知识文件
+    showCoFillStep('upload-knowledge');
+  }
+}
+
+function showCoFillStep(step) {
+  const body = document.getElementById('cofillFieldsBody');
+  const footer = document.getElementById('cofillFooter');
+  const stepText = document.getElementById('cofillStepText');
+  const previewBody = document.getElementById('cofillDocContainer');
+
+  switch (step) {
+    case 'select-template':
+      stepText.textContent = '步骤 1/3：选择模板';
+      footer.style.display = 'none';
+      body.innerHTML = `
+        <div class="cofill-step-guide">
+          <div class="step-icon">📄</div>
+          <h3>选择文档模板</h3>
+          <p>请选择要填写的教务文档模板，支持内置模板或上传自定义Word模板</p>
+          <div class="step-actions">
+            <button onclick="cofillSelectBuiltIn()">📋 选择内置模板</button>
+            <button class="primary" onclick="cofillUploadTemplate()">📤 上传自定义模板</button>
+          </div>
+        </div>`;
+      previewBody.innerHTML = `<div class="cofill-step-guide"><div class="step-icon">👀</div><h3>模板预览</h3><p>选择模板后，文档预览将在此显示</p></div>`;
+      break;
+
+    case 'upload-knowledge':
+      stepText.textContent = '步骤 2/3：上传知识文件';
+      footer.style.display = 'none';
+      body.innerHTML = `
+        <div class="cofill-step-guide">
+          <div class="step-icon">📚</div>
+          <h3>上传知识文件</h3>
+          <p>上传教学大纲、成绩单、课程计划等文件，AI将自动提取信息并预填到模板字段中</p>
+          <div style="font-size:12px;color:#888;margin-top:4px">支持 .docx .txt .pdf .csv，可多选</div>
+          <div class="step-actions">
+            <button class="primary" onclick="triggerUpload()">📎 选择知识文件</button>
+            <button onclick="cofillSkipKnowledge()">跳过，手动填写</button>
+          </div>
+        </div>`;
+      // 在右侧显示模板预览
+      if (docPreviewHtml) {
+        previewBody.innerHTML = docPreviewHtml;
+      }
+      break;
+
+    case 'prefilling':
+      stepText.textContent = '步骤 2/3：AI提取中...';
+      footer.style.display = 'none';
+      body.innerHTML = `
+        <div class="cofill-loading">
+          <div class="spinner"></div>
+          <p>🤖 AI正在从知识文件中提取字段值...</p>
+          <div class="sub">这可能需要10-30秒</div>
+        </div>`;
+      break;
+
+    case 'review':
+      stepText.textContent = '步骤 3/3：审核确认';
+      footer.style.display = 'flex';
+      renderCoFillReview();
+      break;
+
+    case 'manual':
+      stepText.textContent = '步骤 3/3：手动填写';
+      footer.style.display = 'flex';
+      renderCoFillManual();
+      break;
+  }
+}
+
+function cofillSelectBuiltIn() {
+  // 在左侧面板展示内置模板选择
+  const body = document.getElementById('cofillFieldsBody');
+  body.innerHTML = `
+    <div style="padding:12px 0">
+      <div class="cofill-field-group-title">内置模板</div>
+      <div class="cofill-field-card confirmed" style="cursor:pointer" onclick="cofillPickTemplate('评价报告')">
+        <div class="dot"></div>
+        <div class="field-body">
+          <div class="field-label">📊 课程目标达成度评价报告</div>
+          <div style="font-size:12px;color:#888">93个字段 · 含课程目标、成绩统计等</div>
+        </div>
+      </div>
+      <div class="cofill-field-card confirmed" style="cursor:pointer" onclick="cofillPickTemplate('试卷分析')">
+        <div class="dot"></div>
+        <div class="field-body">
+          <div class="field-label">📝 试卷分析报告</div>
+          <div style="font-size:12px;color:#888">20个字段 · 含考勤、成绩分布等</div>
+        </div>
+      </div>
+      <div class="cofill-field-card confirmed" style="cursor:pointer" onclick="cofillPickTemplate('关联矩阵')">
+        <div class="dot"></div>
+        <div class="field-body">
+          <div class="field-label">🔗 考题与课程目标关联矩阵</div>
+          <div style="font-size:12px;color:#888">含课程目标、考题对应关系等</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function cofillPickTemplate(name) {
+  currentTemplate = name;
+  currentTemplatePath = name;
+
+  // 显示加载
+  const body = document.getElementById('cofillFieldsBody');
+  body.innerHTML = `<div class="cofill-loading"><div class="spinner"></div><p>正在分析模板字段...</p></div>`;
+
+  // 获取文档预览
+  await fetchDocPreview(name);
+
+  // 调用分析API获取字段列表
+  try {
+    const resp = await fetch(BASE_URL + '/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: `请使用analyze_report_template工具分析"${name}"模板，返回所有可填写字段。`,
+        session_id: sessionId,
+      }),
+    });
+    // 这里不等待完整响应，直接进入步骤2
+  } catch (e) {
+    // 忽略错误，进入步骤2即可
+  }
+
+  // 存储分析结果到 window._lastAnalyzedFields 以便手动填写模式使用
+  // 模板选好后进入步骤2
+  showCoFillStep('upload-knowledge');
+}
+
+function cofillUploadTemplate() {
+  document.getElementById('templateFileInput').click();
+}
+
+function cofillSkipKnowledge() {
+  // 跳过知识文件，直接进入手动填写
+  showCoFillStep('manual');
+}
+
+function exitCoFill() {
+  document.querySelector('.app').classList.remove('cofill-mode');
+  prefillMode = false;
+  prefillData = null;
+  document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
+  // 恢复预览
+  if (docPreviewHtml) {
+    document.getElementById('previewBody').innerHTML = docPreviewHtml;
+  }
+}
+
+async function requestPrefill(filePaths) {
+  /** 调用 /prefill API 获取预填结果 */
+  if (!currentTemplate && !currentTemplatePath) {
+    alert('请先选择模板');
+    return;
+  }
+
+  const templatePath = currentTemplatePath || currentTemplate;
+  if (!templatePath) {
+    alert('未检测到模板，请先选择模板。');
+    return;
+  }
+
+  // 显示加载态
+  showCoFillStep('prefilling');
+
+  try {
+    const resp = await fetch(BASE_URL + '/prefill', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        file_paths: filePaths,
+        template_path: templatePath,
+      }),
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const result = await resp.json();
+
+    if (result.success) {
+      prefillData = result;
+      showCoFillStep('review');
+      // 在聊天窗口也通知一下
+      appendMessage('user', '已上传知识文件，AI正在提取预填');
+      appendMessage('assistant', `✅ ${result.summary || 'AI预填完成'}\n\n请在左侧审核面板中确认或修正预填结果，确认后点击「确认并生成」。`);
+    } else {
+      alert(`预填失败：${result.message || '未知错误'}，将进入手动填写模式`);
+      showCoFillStep('manual');
+    }
+  } catch (err) {
+    alert(`预填请求失败：${err.message}，将进入手动填写模式`);
+    showCoFillStep('manual');
+  }
+}
+
+function renderCoFillReview() {
+  /** 在协同视图左侧渲染预填审核字段卡片 */
+  const body = document.getElementById('cofillFieldsBody');
+  const fields = prefillData.fields || [];
+
+  // 分组
+  const confirmed = fields.filter(f => f.status === 'confirmed');
+  const review = fields.filter(f => f.status === 'review');
+  const empty = fields.filter(f => f.status === 'empty');
+  const total = fields.length;
+  const filled = confirmed.length + review.length;
+  const pct = total > 0 ? Math.round(filled / total * 100) : 0;
+
+  // 更新进度
+  document.getElementById('cofillProgress').style.display = 'flex';
+  document.getElementById('cofillBarFill').style.width = pct + '%';
+  document.getElementById('cofillPct').textContent = pct + '%';
+  document.getElementById('cofillBadges').style.display = 'flex';
+  document.getElementById('cofillBadges').innerHTML = `
+    <span class="badge green">✅ 已确认 ${confirmed.length}</span>
+    <span class="badge yellow">⚠️ 需审核 ${review.length}</span>
+    <span class="badge gray">⬜ 未填写 ${empty.length}</span>
+  `;
+
+  let html = '';
+
+  // 需审核字段
+  if (review.length > 0) {
+    html += `<div class="cofill-field-group-title">⚠️ 需要审核（${review.length}）</div>`;
+    for (const f of review) html += renderCoFillFieldCard(f, 'review');
+  }
+
+  // 未填写字段
+  if (empty.length > 0) {
+    html += `<div class="cofill-field-group-title">⬜ 需要填写（${empty.length}）</div>`;
+    for (const f of empty) html += renderCoFillFieldCard(f, 'empty');
+  }
+
+  // 已确认字段（折叠）
+  if (confirmed.length > 0) {
+    html += `<div class="cofill-field-group-title" style="cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.textContent=this.nextElementSibling.style.display==='none'?'✅ 已确认（${confirmed.length}） ▸ 点击展开':'✅ 已确认（${confirmed.length}） ▾ 点击收起'">✅ 已确认（${confirmed.length}） ▸ 点击展开</div>`;
+    html += `<div style="display:none">`;
+    for (const f of confirmed) html += renderCoFillFieldCard(f, 'confirmed');
+    html += `</div>`;
+  }
+
+  body.innerHTML = html;
+
+  // 更新右侧预览
+  const previewContainer = document.getElementById('cofillDocContainer');
+  if (docPreviewHtml) {
+    previewContainer.innerHTML = docPreviewHtml;
+  }
+
+  // 更新提交按钮状态
+  document.getElementById('cofillSubmitBtn').disabled = (filled === 0);
+}
+
+function renderCoFillManual() {
+  /** 在协同视图左侧渲染手动填写表单（无预填数据时） */
+  const body = document.getElementById('cofillFieldsBody');
+
+  // 优先使用prefillData的字段，其次从fieldMap构建
+  let fields = [];
+  if (prefillData && prefillData.fields && prefillData.fields.length > 0) {
+    fields = prefillData.fields;
+  } else if (Object.keys(fieldMap).length > 0) {
+    // 从预览的fieldMap构建字段列表
+    fields = [];
+    for (const [fid, info] of Object.entries(fieldMap)) {
+      const label = info.label || info.raw_label || fid;
+      // 避免重复label
+      if (!fields.find(f => f.label === label)) {
+        fields.push({
+          field_id: fid,
+          label: label,
+          raw_label: label,
+          value: '',
+          confidence: 0,
+          source: '',
+          status: 'empty',
+        });
+      }
+    }
+    // 去重：同一label可能有多个field_id，只保留第一个
+    const seen = new Set();
+    fields = fields.filter(f => {
+      if (seen.has(f.label)) return false;
+      seen.add(f.label);
+      return true;
+    });
+  }
+
+  if (fields.length === 0) {
+    body.innerHTML = `<div class="cofill-step-guide"><div class="step-icon">📝</div><h3>暂无字段信息</h3><p>请先选择模板并等待字段分析完成</p></div>`;
+    return;
+  }
+
+  // 创建prefillData if not exists
+  if (!prefillData) {
+    prefillData = { fields: fields, template_fields: fields.length, prefilled: 0, needs_review: 0, still_empty: fields.length, fill_rate: 0, fill_rate_pct: 0 };
+  }
+
+  // 更新进度
+  document.getElementById('cofillProgress').style.display = 'flex';
+  document.getElementById('cofillBarFill').style.width = '0%';
+  document.getElementById('cofillPct').textContent = '0%';
+  document.getElementById('cofillBadges').style.display = 'flex';
+  document.getElementById('cofillBadges').innerHTML = `<span class="badge gray">⬜ 需填写 ${fields.length}</span>`;
+
+  let html = `<div class="cofill-field-group-title">📝 请填写以下字段（${fields.length}）</div>`;
+  for (const f of fields) html += renderCoFillFieldCard(f, 'empty');
+  body.innerHTML = html;
+
+  // 右侧预览
+  const previewContainer = document.getElementById('cofillDocContainer');
+  if (docPreviewHtml) previewContainer.innerHTML = docPreviewHtml;
+
+  document.getElementById('cofillSubmitBtn').disabled = true;
+}
+
+function renderCoFillFieldCard(field, status) {
+  /** 渲染单个字段卡片 */
+  const value = field.value || '';
+  const confidence = field.confidence || 0;
+  const source = field.source || '';
+  const label = field.raw_label || field.label;
+
+  return `<div class="cofill-field-card ${status}">
+    <div class="dot"></div>
+    <div class="field-body">
+      <div class="field-label">${escapeHtml(label)}${source ? `<span class="source-tag">${escapeHtml(source)}</span>` : ''}</div>
+      <input type="text"
+        data-field-id="${escapeAttr(field.field_id)}"
+        data-label="${escapeAttr(label)}"
+        value="${escapeAttr(value)}"
+        placeholder="${status === 'empty' ? '请输入...' : ''}"
+        oninput="onCoFillFieldInput(this)"
+      />
+    </div>
+    ${confidence > 0 ? `<span class="conf-badge">${Math.round(confidence * 100)}%</span>` : ''}
+  </div>`;
+}
+
+function onCoFillFieldInput(input) {
+  /** 字段值被修改时更新状态 */
+  const card = input.closest('.cofill-field-card');
+  if (input.value.trim()) {
+    card.classList.remove('empty', 'review');
+    card.classList.add('confirmed');
+  } else {
+    card.classList.remove('confirmed', 'review');
+    card.classList.add('empty');
+  }
+  // 更新prefillData
+  if (prefillData && prefillData.fields) {
+    const fid = input.dataset.fieldId;
+    const f = prefillData.fields.find(f => f.field_id === fid);
+    if (f) {
+      f.value = input.value;
+      f.status = input.value.trim() ? 'confirmed' : 'empty';
+      f.confidence = input.value.trim() ? 1.0 : 0;
+      f.source = input.value.trim() ? '用户填写' : '';
+    }
+  }
+  // 更新进度
+  updateCoFillProgress();
+}
+
+function updateCoFillProgress() {
+  /** 更新协同视图的进度条 */
+  if (!prefillData || !prefillData.fields) return;
+  const fields = prefillData.fields;
+  const confirmed = fields.filter(f => f.status === 'confirmed').length;
+  const review = fields.filter(f => f.status === 'review').length;
+  const total = fields.length;
+  const filled = confirmed + review;
+  const pct = total > 0 ? Math.round(filled / total * 100) : 0;
+
+  document.getElementById('cofillBarFill').style.width = pct + '%';
+  document.getElementById('cofillPct').textContent = pct + '%';
+  document.getElementById('cofillBadges').innerHTML = `
+    <span class="badge green">✅ 已确认 ${confirmed}</span>
+    ${review > 0 ? `<span class="badge yellow">⚠️ 需审核 ${review}</span>` : ''}
+    <span class="badge gray">⬜ 未填写 ${total - filled}</span>
+  `;
+
+  // 更新提交按钮
+  document.getElementById('cofillSubmitBtn').disabled = (filled === 0);
+}
+
+// Legacy function kept for backward compat
+function renderFieldCard(field, status) {
+  return renderCoFillFieldCard(field, status);
+}
+
+// Legacy function kept for backward compat
+function onPrefillFieldChange(input) {
+  onCoFillFieldInput(input);
+}
+
+async function submitPrefillReview() {
+  /** 确认预填结果并生成文档 */
+  if (!prefillData) return;
+
+  // 收集所有字段的最终值
+  const finalData = {};
+  const allInputs = document.querySelectorAll('#cofillFieldsBody input[data-field-id]');
+  allInputs.forEach(input => {
+    const label = input.dataset.label;
+    const value = input.value.trim();
+    if (value) {
+      finalData[label] = value;
+    }
+  });
+
+  if (Object.keys(finalData).length === 0) {
+    alert('请至少填写一个字段');
+    return;
+  }
+
+  // 构造 [FIELDS] 格式发送给Agent
+  let fieldsBlock = '[FIELDS]\n';
+  for (const [label, value] of Object.entries(finalData)) {
+    fieldsBlock += `${label}=${value}\n`;
+  }
+  fieldsBlock += '[/FIELDS]';
+
+  const agentMsg = `我已经审核了AI预填结果，以下是最终确认的字段值：\n\n${fieldsBlock}\n\n请根据这些信息生成文档。所有已填字段都已确认，无需再追问。`;
+
+  // 退出协同模式，回到聊天界面
+  exitCoFill();
+
+  // 发送给Agent
+  appendMessage('user', '确认预填结果，生成文档');
+  await callAgent(agentMsg);
+}
+
+async function sendPrefillToAgent() {
+  /** 将预填结果发给Agent继续交互式填写 */
+  if (!prefillData) return;
+
+  const fields = prefillData.fields || [];
+  const filled = fields.filter(f => f.value && f.status !== 'empty');
+  const emptyFields = fields.filter(f => !f.value || f.status === 'empty');
+
+  let msg = `AI预填结果如下，已填字段请直接使用，未填字段请继续追问：\n\n[FIELDS]\n`;
+  for (const f of filled) {
+    msg += `${f.label}=${f.value}\n`;
+  }
+  msg += `[/FIELDS]\n\n`;
+  msg += `还需填写：${emptyFields.map(f => f.label).join('、')}`;
+
+  // 退出协同模式，回到聊天界面
+  exitCoFill();
+
+  appendMessage('user', '将预填结果交给AI继续');
+  await callAgent(msg);
+}
+
+// Legacy: cancelPrefillReview now just calls exitCoFill
+function cancelPrefillReview() { exitCoFill(); }
+
+
+function triggerUpload() {
+  document.getElementById('fileInput').click();
+}
+
+async function handleFileUpload(event) {
+  if (!UPLOAD_URL) { alert('请通过部署后的 Web 服务 URL 访问。'); return; }
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+  event.target.value = '';
+
+  // 显示上传消息
+  if (files.length === 1) {
+    const sizeStr = files[0].size < 1024*1024 ? (files[0].size/1024).toFixed(1)+'KB' : (files[0].size/1024/1024).toFixed(1)+'MB';
+    appendMessage('user', `上传了文件: ${files[0].name}（${sizeStr}）`);
+  } else {
+    const totalSize = files.reduce((s, f) => s + f.size, 0);
+    const sizeStr = totalSize < 1024*1024 ? (totalSize/1024).toFixed(1)+'KB' : (totalSize/1024/1024).toFixed(1)+'MB';
+    const names = files.map(f => f.name).join('、');
+    appendMessage('user', `上传了${files.length}个文件（${sizeStr}）：${names}`);
+  }
+
+  // 构建多文件 FormData
+  const formData = new FormData();
+  for (const file of files) {
+    formData.append('files', file);
+  }
+
+  try {
+    const resp = await fetch(UPLOAD_URL, { method: 'POST', body: formData });
+    if (!resp.ok) throw new Error(`上传失败 HTTP ${resp.status}`);
+    const result = await resp.json();
+
+    // 处理多文件响应
+    if (result.multiple && result.files) {
+      // 收集成功上传的文件路径
+      const uploadedPaths = result.files.filter(f => f.success).map(f => f.file_path).filter(Boolean);
+
+      // 人机协同模式：调用预填API
+      if (prefillMode && uploadedPaths.length > 0) {
+        await requestPrefill(uploadedPaths);
+        return;
+      }
+
+      // 普通模式：合并所有文件内容发给Agent（同时传文件路径，让Agent可以调用工具分析）
+      const fileParts = [];
+      const filePaths = [];
+      for (const f of result.files) {
+        if (f.success && f.extracted_text) {
+          filePaths.push(f.file_path);
+          fileParts.push(`=== 文件：${f.filename} ===\n${f.extracted_text.substring(0, 4000)}`);
+        } else if (!f.success) {
+          fileParts.push(`=== 文件：${f.filename} ===\n[解析失败: ${f.error || '未知错误'}]`);
+        }
+      }
+      if (fileParts.length > 0) {
+        const pathsSection = filePaths.length > 0 ? `\n【文件路径（重要！请用这些路径调用工具）】\n${filePaths.map((p, i) => `文件${i+1}: ${p}`).join('\n')}\n` : '';
+        const agentMsg = `我上传了${result.file_count}个文件。${pathsSection}\n请用analyze_uploaded_template或extract_from_old_report工具，传入上面的文件路径来分析。文件文本内容如下仅供参考：\n\n${fileParts.join('\n\n')}`;
+        await callAgent(agentMsg);
+      } else {
+        appendMessage('assistant', `所有文件解析失败，请尝试其他格式或直接输入信息。`);
+      }
+    } else {
+      // 单文件模式（向后兼容）
+      const uploadedPath = result.file_path;
+
+      // 人机协同模式：调用预填API
+      if (prefillMode && uploadedPath) {
+        await requestPrefill([uploadedPath]);
+        return;
+      }
+
+      if (result.success && result.extracted_text) {
+        const agentMsg = `我上传了文件"${result.filename}"。\n\n【文件路径（重要！请用这个路径调用工具）】\n${result.file_path}\n\n请用analyze_uploaded_template或extract_from_old_report工具，传入上面的文件路径来分析。文件文本内容如下仅供参考：\n\n${result.extracted_text.substring(0, 3000)}`;
+        await callAgent(agentMsg);
+      } else {
+        appendMessage('assistant', `文件解析失败：${result.error || '未知错误'}，请尝试其他格式或直接输入信息。`);
+      }
+    }
+  } catch (err) {
+    appendMessage('assistant', `文件上传失败：${escapeHtml(err.message)}，请检查网络后重试。`);
+  }
+}
+
+function highlightUploadBtn() {
+  const btn = document.getElementById('funcUpload');
+  btn.style.animation = 'pulse 1s ease 3';
+  setTimeout(() => btn.style.animation = '', 3000);
+}
+
+function downloadDoc() {
+  // 优先使用后端代理下载（支持远程URL和本地文件）
+  if (currentDocxPath) {
+    const url = `${BASE_URL}/download-docx?file_path=${encodeURIComponent(currentDocxPath)}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return;
+  }
+  if (currentDownloadUrl) {
+    const url = `${BASE_URL}/download-docx?file_path=${encodeURIComponent(currentDownloadUrl)}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+}
+
+function printDoc() {
+  // 直接使用 HTML 打印预览，调起系统打印对话框（用户可选打印机/格式）
+  _printDocFallback();
+}
+function _printDocFallback() {
+  const previewBody = document.getElementById('previewBody');
+  if (!previewBody || !previewBody.querySelector('.doc-page')) {
+    return;
+  }
+  const docPages = previewBody.querySelectorAll('.doc-page');
+  let docHtml = '';
+  docPages.forEach(page => {
+    const clone = page.cloneNode(true);
+    clone.querySelectorAll('#submitManualBtn, .submit-manual-btn').forEach(el => el.remove());
+    clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+    clone.querySelectorAll('.placeholder-text').forEach(el => {
+      if (!el.textContent.trim() || el.textContent.trim() === '—') {
+        el.textContent = '';
+      }
+    });
+    docHtml += clone.outerHTML;
+  });
+  const printWin = window.open('', '_blank', 'width=900,height=700');
+  printWin.document.write(`<!DOCTYPE html><html><head><title>打印预览</title>
+    <style>
+      @page { size: A4; margin: 15mm 12mm; }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 0; font-family: SimSun, Songti SC, serif; color: #000; }
+      .doc-page {
+        width: 100%; max-width: 190mm;
+        padding: 0; margin: 0 auto;
+        font-size: 10.5pt; line-height: 1.8; color: #000;
+        background: none; box-shadow: none; border-radius: 0;
+      }
+      .doc-page h2 {
+        text-align: center; font-size: 14pt;
+        margin: 0 0 16px 0; font-weight: 600;
+        color: #000; letter-spacing: 1px;
+      }
+      .doc-page p { margin: 0 0 6px 0; font-size: 10.5pt; }
+      .doc-table {
+        width: 100%; border-collapse: collapse;
+        margin-bottom: 10px; font-size: 9pt; line-height: 1.6;
+      }
+      .doc-table td, .doc-table th {
+        border: 1px solid #000 !important;
+        padding: 3px 6px; vertical-align: middle;
+        text-align: left; word-wrap: break-word;
+      }
+      .doc-table td { display: table-cell !important; }
+      .colon-field-inner {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 2px;
+      }
+      .doc-cell.colon-field.multi-line .colon-field-inner {
+        flex-direction: column; align-items: stretch;
+      }
+      .label-cell { font-weight: bold; }
+      .value-cell { min-width: 30px; }
+      .value-cell.filled { color: #000; }
+      .value-cell.empty { color: #999; }
+      .colon-label { font-weight: bold; white-space: nowrap; }
+      .colon-value { font-weight: normal; }
+      .download-banner, .progress-bar, .submit-manual-btn, #submitManualBtn,
+      button, .actions, .preview-actions, .placeholder-text { display: none !important; }
+      [data-field-id] { border: none !important; background: none !important; outline: none !important; }
+      .doc-table { page-break-inside: auto; }
+      tr { page-break-inside: avoid; page-break-after: auto; }
+      thead { display: table-header-group; }
+    </style></head><body>
+    ${docHtml}
+    <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`);
+  printWin.document.close();
+}
+
+// ── Submit manually edited fields to agent ──
+async function submitManualEdits() {
+  // 收集所有可编辑字段的当前值
+  const edits = {};
+  const els = document.querySelectorAll('[data-field-id][contenteditable]');
+  els.forEach(el => {
+    const fid = el.dataset.fieldId;
+    const val = el.textContent.trim();
+    if (val) {
+      fieldData[fid] = val;
+      edits[fid] = val;
+      manuallyEditedFields[fid] = true;
+    }
+  });
+
+  const editCount = Object.keys(edits).length;
+  if (editCount === 0) {
+    alert('没有填写任何字段');
+    return;
+  }
+
+  // 按 label 分组输出
+  let msg = '我手动填写了以下信息：\n';
+  for (const [fid, val] of Object.entries(edits)) {
+    const label = fieldMap[fid]?.label || fid;
+    msg += `- ${label}：${val}\n`;
+  }
+  msg += '\n请记录这些信息，继续下一步。';
+
+  appendMessage('user', `提交了 ${editCount} 个字段的手动填写`);
+  await callAgent(msg);
+}
+
+// ── Event delegation for contenteditable changes ──
+document.addEventListener('input', function(e) {
+  const el = e.target;
+  if (el.hasAttribute('data-field-id') && el.hasAttribute('contenteditable')) {
+    const fid = el.dataset.fieldId;
+    const val = el.textContent.trim();
+    fieldData[fid] = val;
+    manuallyEditedFields[fid] = true;
+
+    // Update visual state
+    if (el.classList.contains('cell-value')) {
+      el.classList.toggle('filled', !!val);
+    } else if (el.classList.contains('editable')) {
+      el.classList.toggle('empty', !val);
+      el.classList.toggle('filled', !!val);
+    }
+
+    // Update progress
+    const totalFields = Object.keys(fieldMap).length;
+    let filledCount = 0;
+    for (const f in fieldMap) {
+      if (fieldData[f] && fieldData[f].trim()) filledCount++;
+    }
+    const pct = totalFields > 0 ? Math.round(filledCount / totalFields * 100) : 0;
+    const barFill = document.querySelector('.bar-fill');
+    const barText = document.querySelector('.bar-text');
+    if (barFill) barFill.style.width = pct + '%';
+    if (barText) barText.textContent = `${filledCount}/${totalFields} 已填写`;
+  }
+});
+
+// ── Markdown Render ──
+function renderMarkdown(text) {
+  // Strip [FIELDS]...[/FIELDS] blocks from display
+  let html = escapeHtml(text.replace(/\[FIELDS\][\s\S]*?\[\/FIELDS\]/g, ''));
+  html = html.replace(/\[([^\]]*)\]\((https?:\/\/[^\s"<>]+\.docx[^\s"<>]*)\)/g,
+    '<a class="download-link" href="$2" target="_blank">下载文档</a>');
+  html = html.replace(/(?<!href=")(https?:\/\/[^\s"<>]+\.docx[^\s"<>]*)/g,
+    '<a class="download-link" href="$1" target="_blank">下载文档</a>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/^- (.+)$/gm, '<div style="padding-left:12px;opacity:0.9;">· $1</div>');
+  html = html.replace(/^\d+\. (.+)$/gm, '<div style="padding-left:12px;">$1</div>');
+  html = html.replace(/\n/g, '<br>');
+  return html;
+}
+
+// ── Helpers ──
+function escapeHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+function escapeAttr(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ── Init ──
+window.addEventListener('load', () => {
+  const isNewSession = !localStorage.getItem('doc_session_id_visited');
+  if (isNewSession) {
+    localStorage.setItem('doc_session_id_visited', '1');
+    appendMessage('assistant',
+      '您好，请选择操作方式：\n\n' +
+      '· 点击下方「内置模板」选择预设模板\n' +
+      '· 点击「上传模板」上传Word文档自动识别\n' +
+      '· 点击「知识文件上传」批量上传文件提取信息\n' +
+      '· 或直接输入消息开始'
+    );
+  } else {
+    appendMessage('assistant', '已恢复上次对话，您可以继续操作。');
+  }
+  updateStepBar();
+});
+
+const style = document.createElement('style');
+style.textContent = '@keyframes pulse { 0%,100%{transform:scale(1);box-shadow:var(--shadow)} 50%{transform:scale(1.03);box-shadow:0 0 0 4px rgba(37,99,235,0.1)} }';
+document.head.appendChild(style);
+</script>
+</body>
+</html>
