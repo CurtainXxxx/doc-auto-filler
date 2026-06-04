@@ -303,9 +303,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 挂载前端静态文件
-_web_dir = os.path.join(os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"), "web")
-if os.path.isdir(_web_dir):
+# 挂载前端静态文件：优先项目根目录下的 web/，再尝试工作区根目录
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # src/ 的上级
+_web_dir_candidates = [
+    os.path.join(_project_root, "web"),
+    os.path.join(os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"), "web"),
+]
+_web_dir = ""
+for _wd in _web_dir_candidates:
+    if os.path.isdir(_wd):
+        _web_dir = _wd
+        break
+if _web_dir:
     app.mount("/web", StaticFiles(directory=_web_dir, html=True), name="web")
     logger.info(f"Frontend mounted at /web from {_web_dir}")
 
