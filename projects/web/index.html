@@ -132,6 +132,55 @@ html, body {
 .steps-bar .step.done::before { background: var(--success); }
 .steps-bar .step.done::after { background: var(--success); }
 
+	/* Agent 状态栏 */
+	.agent-status-bar {
+	  display: flex; align-items: center; gap: 8px;
+	  padding: 6px 16px; background: linear-gradient(135deg, #EEF2FF 0%, #F0F4FF 100%);
+	  border-bottom: 1px solid var(--border-light);
+	  font-size: 12px; color: var(--text-secondary);
+	  transition: all 0.3s; min-height: 32px;
+	}
+	.agent-status-bar .agent-dot {
+	  width: 8px; height: 8px; border-radius: 50%;
+	  background: var(--border); flex-shrink: 0; transition: background 0.3s;
+	}
+	.agent-status-bar .agent-dot.active { background: var(--primary); animation: pulse-dot 1.5s infinite; }
+	.agent-status-bar .agent-dot.done { background: var(--success); }
+	.agent-status-bar .agent-label { font-weight: 600; color: var(--primary); transition: color 0.3s; }
+	.agent-status-bar .agent-label.done { color: var(--success); }
+	.agent-status-bar .agent-desc { color: var(--text-muted); }
+	@keyframes pulse-dot {
+	  0%, 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4); }
+	  50% { box-shadow: 0 0 0 6px rgba(79, 70, 229, 0); }
+	}
+
+	/* 思考动画 */
+	.thinking-indicator {
+	  display: flex; align-items: center; gap: 6px;
+	  padding: 8px 14px; font-size: 12px; color: var(--text-muted);
+	}
+	.thinking-dots { display: flex; gap: 3px; }
+	.thinking-dots span {
+	  width: 5px; height: 5px; border-radius: 50%;
+	  background: var(--primary); animation: bounce-dot 1.2s infinite;
+	}
+	.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+	.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+	@keyframes bounce-dot {
+	  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+	  40% { transform: scale(1); opacity: 1; }
+	}
+
+	/* 重试按钮 */
+	.retry-btn {
+	  display: inline-flex; align-items: center; gap: 4px;
+	  margin-top: 6px; padding: 4px 12px; font-size: 11px;
+	  color: var(--primary); background: var(--primary-light);
+	  border: 1px solid var(--primary); border-radius: 4px;
+	  cursor: pointer; transition: all 0.15s;
+	}
+	.retry-btn:hover { background: var(--primary); color: #fff; }
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -920,6 +969,12 @@ html, body {
       <div class="step">生成文档</div>
     </div>
 
+	    <div class="agent-status-bar" id="agentStatusBar" style="display:none">
+	      <span class="agent-dot" id="agentDot"></span>
+	      <span class="agent-label" id="agentLabel"></span>
+	      <span class="agent-desc" id="agentDesc"></span>
+	    </div>
+
     <div class="chat-messages" id="chatMessages"></div>
 
     <div class="func-panel">
@@ -1126,7 +1181,46 @@ function createStreamingMessage() {
 }
 
 // ── Call Agent ──
-async function callAgent(userText) {
+// P0-3: 思考动画
+	let thinkingEl = null;
+	function showThinkingIndicator(show) {
+	  const chat = document.getElementById('chatMessages');
+	  if (show) {
+	    if (!thinkingEl) {
+	      thinkingEl = document.createElement('div');
+	      thinkingEl.className = 'thinking-indicator';
+	      thinkingEl.innerHTML = '<span>思考中</span><span class="thinking-dots"><span></span><span></span><span></span></span>';
+	      thinkingEl.id = 'thinkingIndicator';
+	    }
+	    if (!document.getElementById('thinkingIndicator')) {
+	      chat.appendChild(thinkingEl);
+	    }
+	    chat.scrollTop = chat.scrollHeight;
+	  } else {
+	    const el = document.getElementById('thinkingIndicator');
+	    if (el) el.remove();
+	    thinkingEl = null;
+	  }
+	}
+
+	// P0-4: 错误重试
+	function addRetryButton(msgDiv, errorText) {
+	  const btn = document.createElement('button');
+	  btn.className = 'retry-btn';
+	  btn.innerHTML = '&#x21bb; 重试';
+	  btn.onclick = () => {
+	    msgDiv.querySelector('.retry-btn')?.remove();
+	    const msgs = document.querySelectorAll('.message');
+	    const lastUserMsg = Array.from(msgs).filter(m => m.classList.contains('user')).pop();
+	    if (lastUserMsg) {
+	      const text = lastUserMsg.querySelector('.message-content')?.textContent || '';
+	      sendMessage(text);
+	    }
+	  };
+	  msgDiv.appendChild(btn);
+	}
+
+	async function callAgent(userText) {
   isStreaming = true;
   document.getElementById('sendBtn').disabled = true;
 
@@ -1462,60 +1556,109 @@ function updateCellInPreview(fieldId, value) {
 
 // ── Post-process Response ──
 function postProcessResponse(text) {
+  // P0-1: 检测 Agent 身份标签并更新状态栏
+  const agentTags = [
+    { tag: '[知识提取Agent]', label: '知识提取 Agent', desc: '正在从文件中提取关键信息...', step: 0 },
+    { tag: '[填充Agent]', label: '字段填充 Agent', desc: '正在将信息匹配到模板字段...', step: 1 },
+    { tag: '[生成Agent]', label: '文档生成 Agent', desc: '正在生成 Word 文档...', step: 3 }
+  ];
+  for (const at of agentTags) {
+    if (text.includes(at.tag)) {
+      updateAgentStatus(at.label, at.desc, 'active');
+      break;
+    }
+  }
+
+  // P0-2: 检测阶段完成标记（与 Router 架构对齐）
+  if (text.includes('[知识提取完成]')) {
+    currentStep = Math.max(currentStep, 1);
+    updateAgentStatus('知识提取 Agent', '事实提取完成', 'done');
+    updateStepBar();
+  }
+  if (text.includes('[填充完成]')) {
+    currentStep = Math.max(currentStep, 2);
+    updateAgentStatus('字段填充 Agent', '字段匹配完成', 'done');
+    updateStepBar();
+  }
+  if (text.includes('[生成完成]')) {
+    currentStep = Math.max(currentStep, 4);
+    updateAgentStatus('文档生成 Agent', '文档已生成', 'done');
+    updateStepBar();
+  }
+
+  // 检测 [FACTS] 标记 — 知识提取完成
+  if (text.includes('[FACTS]') && text.includes('[/FACTS]')) {
+    if (currentStep < 1) currentStep = 1;
+    updateAgentStatus('知识提取 Agent', '事实提取完成', 'done');
+    updateStepBar();
+  }
+
+  // 检测 [FIELDS] 标记 — 字段填充中
+  if (text.includes('[FIELDS]') && text.includes('[/FIELDS]')) {
+    if (currentStep < 2) currentStep = 2;
+    updateStepBar();
+  }
+
+  // 下载链接检测
   const urlMatch = text.match(/https?:\/\/[^\s"<>]+\.docx[^\s"<>]*/);
   if (urlMatch) {
     currentDownloadUrl = urlMatch[0];
     currentStep = 5; updateStepBar();
     updatePreview('done');
     document.getElementById('previewActions').style.display = 'flex';
+    updateAgentStatus('', '文档已生成，可下载', 'done');
     return;
   }
 
-  if (text.includes('评价报告') && (text.includes('试卷分析') || text.includes('关联矩阵')) && currentStep === 0) {
-    currentStep = 1; updatePreview('template-select');
-  }
-
-  // 检测模板选择，自动加载文档预览
-  const tplKeywords = ['评价报告', '试卷分析', '关联矩阵'];
-  for (const kw of tplKeywords) {
-    if (text.includes(kw) && currentTemplate !== kw) {
-      currentTemplate = kw;
-      currentTemplatePath = kw;
-      fetchDocPreview(kw);  // 自动加载右侧文档预览
-      break;
-    }
-  }
-  if ((text.includes('评价报告') || text.includes('试卷分析') || text.includes('关联矩阵')) && currentStep === 1) {
-    const tplMatch = text.match(/(评价报告|试卷分析|关联矩阵)/);
-    if (tplMatch) currentTemplate = tplMatch[1];
-  }
-
+  // 兼容旧版检测（保留作为兜底）
   if (text.includes('识别到') && text.includes('字段') && currentStep === 0) {
     currentStep = 1; updateStepBar();
     const tplFileMatch = text.match(/模板[：:]?\s*(\S+\.docx?)/);
     if (tplFileMatch) currentTemplate = tplFileMatch[1];
   }
 
-  if (text.includes('请填写') || text.includes('请提供') || text.includes('请输入')) {
-    if (currentStep < 2) currentStep = 2;
-    updatePreview('collecting');
-  }
-
-  if (text.includes('核对') || text.includes('确认')) {
-    if (currentStep < 3) currentStep = 3;
-    updatePreview('confirm');
-  }
-
   if (text.includes('正在') && (text.includes('生成') || text.includes('渲染'))) {
-    currentStep = 4; updatePreview('generating');
+    if (currentStep < 4) currentStep = 4;
+    updatePreview('generating');
   }
 
   if (text.includes('缺少') || text.includes('缺失') || text.includes('未提供')) {
     highlightUploadBtn();
   }
 
+  // 模板检测（扩展关键词）
+  const tplKeywords = ['评价报告', '试卷分析', '关联矩阵', '考场记录表', '教材建设申报书', '教务数据申请'];
+  for (const kw of tplKeywords) {
+    if (text.includes(kw) && currentTemplate !== kw) {
+      currentTemplate = kw;
+      currentTemplatePath = kw;
+      fetchDocPreview(kw);
+      break;
+    }
+  }
+
   updateStepBar();
 }
+
+// P0-1: Agent 状态栏更新
+function updateAgentStatus(label, desc, state) {
+  const bar = document.getElementById('agentStatusBar');
+  const dot = document.getElementById('agentDot');
+  const labelEl = document.getElementById('agentLabel');
+  const descEl = document.getElementById('agentDesc');
+  if (!bar) return;
+
+  bar.style.display = 'flex';
+  dot.className = 'agent-dot ' + state;
+  labelEl.className = 'agent-label ' + state;
+  labelEl.textContent = label || '';
+  descEl.textContent = desc || '';
+
+  if (state === 'done') {
+    setTimeout(() => { if (bar) bar.style.display = 'none'; }, 4000);
+  }
+}
+
 
 function updateStepBar() {
   const bar = document.getElementById('stepsBar');
