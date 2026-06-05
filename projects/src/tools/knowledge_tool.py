@@ -221,17 +221,18 @@ def _llm_extract_fields(field_list: list, file_content: str, ctx=None) -> dict:
                 max_completion_tokens=4096,
             )
             content = response.content
-            # type: ignore 响应内容可能为list或str
-            content_str: str = ""
-            if isinstance(content, list):
-                content_str = " ".join(
-                    item.get("text", "") for item in content
-                    if isinstance(item, dict) and item.get("type") == "text"
-                )
-            elif isinstance(content, str):
-                content_str = content
-            else:
-                content_str = str(content)
+
+        # 统一处理 content → content_str（两种 API 路径共用）
+        content_str: str = ""
+        if isinstance(content, list):
+            content_str = " ".join(
+                item.get("text", "") for item in content
+                if isinstance(item, dict) and item.get("type") == "text"
+            )
+        elif isinstance(content, str):
+            content_str = content
+        else:
+            content_str = str(content)
 
         # 提取JSON部分
         content_str = content_str.strip()
