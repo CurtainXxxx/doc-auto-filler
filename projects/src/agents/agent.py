@@ -9,7 +9,9 @@
 """
 
 import os
+import re
 import json
+import functools
 from typing import Annotated
 from dotenv import load_dotenv
 
@@ -19,7 +21,6 @@ if not os.path.isfile(_env_path):
     _env_path = os.path.join(os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"), ".env")
 load_dotenv(_env_path, override=True)
 
-from langchain.agents.middleware import AgentMiddleware
 from langchain.messages import ToolMessage, AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
@@ -37,48 +38,21 @@ class MultiAgentState(MessagesState):
     remaining_steps: int = 0
 
 
-# ── Middleware ──
-class ToolErrorHandler(AgentMiddleware):
-    """工具调用错误处理：捕获异常并返回友好错误消息"""
-
-    def wrap_tool_call(self, request, handler):
-        try:
-            return handler(request)
-        except Exception as e:
-            return ToolMessage(
-                content=f"工具调用出错: {str(e)}",
-                tool_call_id=request.tool_call["id"],
-            )
-
-    async def awrap_tool_call(self, request, handler):
-        try:
-            return await handler(request)
-        except Exception as e:
-            return ToolMessage(
-                content=f"工具调用出错: {str(e)}",
-                tool_call_id=request.tool_call["id"],
-            )
-
-
-class SanitizeBeforeLLM(AgentMiddleware):
-    """在消息进入LLM前清理过长的工具输出，防止token溢出"""
-
-    def before_model(self, state, runtime):
-        msgs = state.get("messages", [])
-        sanitized = []
-        for m in msgs:
-            if hasattr(m, "content") and isinstance(m.content, str) and len(m.content) > 8000:
-                sanitized.append(m.model_copy(update={"content": m.content[:8000] + "\n...(truncated)"}))
-            else:
-                sanitized.append(m)
-        return {"messages": sanitized}
-
-    async def abefore_model(self, state, runtime):
-        return self.before_model(state, runtime)
+# ── 消息清理 Hook（替代 AgentMiddleware，create_react_agent 不支持 middleware 参数）──
+def _sanitize_messages(state, runtime):
+    """pre_model_hook：在消息进入LLM前清理过长的工具输出，防止token溢出"""
+    msgs = state.get("messages", [])
+    sanitized = []
+    for m in msgs:
+        if hasattr(m, "content") and isinstance(m.content, str) and len(m.content) > 8000:
+            sanitized.append(m.model_copy(update={"content": m.content[:8000] + "\n...(truncated)"}))
+        else:
+            sanitized.append(m)
+    return {"messages": sanitized}
 
 
 # ── LLM 构建 ──
-def _build_llm():
+def _build_llm(ctx=None):
     """构建 LLM 实例：优先外部 API，fallback 平台内置模型"""
     external_key = os.getenv("EXTERNAL_LLM_API_KEY")
     if external_key:
@@ -94,16 +68,26 @@ def _build_llm():
     if not os.path.isfile(cfg_path):
         cfg_path = os.path.join(os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"), "config", "agent_llm_config.json")
     with open(cfg_path, "r", encoding="utf-8") as f:
-        cfg = json.load(f)
+        raw_cfg = json.load(f)
+
+    # Bug 3 修复：config 结构是 {"config": {"model": ..., "temperature": ...}}，不是平铺
+    cfg = raw_cfg.get("config", raw_cfg)
 
     model_name = cfg.get("model", "doubao-seed-1-6-251015")
+    temperature = cfg.get("temperature", 0.7)
+    timeout = cfg.get("timeout", 600)
+
+    # Bug 2 修复：传入 ctx 生成平台认证头
+    headers = default_headers(ctx) if ctx else default_headers() or {}
+
     return ChatOpenAI(
         model=model_name,
         api_key=os.getenv("ARK_API_KEY", os.getenv("OPENAI_API_KEY", "")),
         base_url=os.getenv("ARK_BASE_URL", os.getenv("OPENAI_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")),
-        temperature=0.3,
+        temperature=temperature,
         streaming=True,
-        default_headers=default_headers() or {},
+        timeout=timeout,
+        default_headers=headers,
     )
 
 
@@ -142,26 +126,29 @@ def _load_tools():
     }
 
 
-# ── 阶段检测 ──
-def _has_stage_marker(messages: list, marker: str) -> bool:
-    """检查消息历史中是否存在指定阶段标记"""
-    for m in messages:
-        if hasattr(m, 'content') and isinstance(m.content, str):
-            if marker in m.content:
-                return True
-    return False
+# ── 阶段检测（Bug 4 修复：用正则增强匹配，容忍空格/换行/markdown包裹）──
+
+# 匹配 [FACTS]...[/FACTS] 或 [知识提取完成]（容忍前后空格、markdown代码块包裹）
+_RE_FACTS_BLOCK = re.compile(r'\[FACTS\].*?\[/FACTS\]', re.DOTALL)
+_RE_KNOWLEDGE_DONE = re.compile(r'\[知识提取完成\]')
+
+# 匹配 [FIELDS]...[/FIELDS] 或 [填充完成]
+_RE_FIELDS_BLOCK = re.compile(r'\[FIELDS\].*?\[/FIELDS\]', re.DOTALL)
+_RE_FILLING_DONE = re.compile(r'\[填充完成\]')
+
+# 匹配 [生成完成] 或 download_url + success
+_RE_GENERATION_DONE = re.compile(r'\[生成完成\]')
+_RE_DOWNLOAD_SUCCESS = re.compile(r'"download_url".*"success"\s*:\s*true', re.DOTALL)
 
 
 def _has_facts(messages: list) -> bool:
-    """检查知识提取是否完成（存在 [FACTS] 标签或知识提取Agent的总结输出）"""
+    """检查知识提取是否完成（正则匹配，容忍格式变化）"""
     for m in messages:
         if hasattr(m, 'content') and isinstance(m.content, str):
             content = m.content
-            # 检查 [FACTS] 标签
-            if '[FACTS]' in content and '[/FACTS]' in content:
+            if _RE_FACTS_BLOCK.search(content):
                 return True
-            # 检查知识提取Agent的完成标记
-            if '[知识提取完成]' in content:
+            if _RE_KNOWLEDGE_DONE.search(content):
                 return True
             # 检查 extract_facts 工具的成功返回
             if '"fact_count"' in content and '"facts"' in content:
@@ -170,13 +157,13 @@ def _has_facts(messages: list) -> bool:
 
 
 def _has_fields_filled(messages: list) -> bool:
-    """检查字段填充是否完成（存在 [FIELDS] 标签或填充Agent的完成标记）"""
+    """检查字段填充是否完成（正则匹配，容忍格式变化）"""
     for m in messages:
         if hasattr(m, 'content') and isinstance(m.content, str):
             content = m.content
-            if '[FIELDS]' in content and '[/FIELDS]' in content:
+            if _RE_FIELDS_BLOCK.search(content):
                 return True
-            if '[填充完成]' in content:
+            if _RE_FILLING_DONE.search(content):
                 return True
             # 检查 update_form_fields 工具的成功返回（progress_pct > 0）
             if '"progress_pct"' in content and '"success": true' in content:
@@ -189,9 +176,9 @@ def _has_generation_done(messages: list) -> bool:
     for m in messages:
         if hasattr(m, 'content') and isinstance(m.content, str):
             content = m.content
-            if '[生成完成]' in content:
+            if _RE_GENERATION_DONE.search(content):
                 return True
-            if 'download_url' in content and '"success": true' in content:
+            if _RE_DOWNLOAD_SUCCESS.search(content):
                 return True
     return False
 
@@ -199,7 +186,7 @@ def _has_generation_done(messages: list) -> bool:
 # ── Router 节点 ──
 def router(state: MultiAgentState) -> dict:
     """路由节点：根据对话状态决定下一个执行的 Agent。
-    
+
     策略：
     - 知识未提取 → knowledge_extraction
     - 知识已提取、未填充 → filling
@@ -222,34 +209,29 @@ def router(state: MultiAgentState) -> dict:
         next_node = "generation"
     else:
         # 全部完成，检查用户最新消息意图
-        # 如果用户发了新消息（如补充材料），可能需要重新提取
         last_user_msg_idx = -1
         for i in range(len(messages) - 1, -1, -1):
             m = messages[i]
             if hasattr(m, 'type') and m.type == 'human':
                 last_user_msg_idx = i
                 break
-        
+
         # 检查最后一条用户消息是否在生成完成之后
         if last_user_msg_idx >= 0:
-            # 查找生成完成标记的位置
             gen_done_idx = -1
             for i, m in enumerate(messages):
-                if hasattr(m, 'content') and isinstance(m.content, str) and '[生成完成]' in m.content:
+                if hasattr(m, 'content') and isinstance(m.content, str) and _RE_GENERATION_DONE.search(m.content):
                     gen_done_idx = i
                     break
-            
+
             # 如果用户消息在生成完成之后，说明是新请求
             if gen_done_idx >= 0 and last_user_msg_idx > gen_done_idx:
-                # 新请求：检查是否包含新材料
                 last_msg = messages[last_user_msg_idx]
                 content = last_msg.content if hasattr(last_msg, 'content') else ""
-                # 如果包含文件/材料关键词，重新走知识提取
                 if any(kw in content for kw in ['文件', '知识', '材料', '报告', '上传', '.txt', '.docx']):
-                    return {"messages": []}  # 不修改状态，路由到知识提取
-                # 否则直接到生成（用户可能想重新生成或修改）
+                    return {"messages": []}
                 return {"messages": []}
-        
+
         next_node = "__end__"
 
     return {"messages": []}
@@ -277,14 +259,13 @@ def route_from_router(state: MultiAgentState) -> str:
             if hasattr(m, 'type') and m.type == 'human':
                 last_user_msg_idx = i
                 break
-        
+
         gen_done_idx = -1
         for i, m in enumerate(messages):
-            if hasattr(m, 'content') and isinstance(m.content, str) and '[生成完成]' in m.content:
+            if hasattr(m, 'content') and isinstance(m.content, str) and _RE_GENERATION_DONE.search(m.content):
                 gen_done_idx = i
-        
+
         if gen_done_idx >= 0 and last_user_msg_idx > gen_done_idx:
-            # 新请求：根据内容决定路由
             last_msg = messages[last_user_msg_idx]
             content = last_msg.content if hasattr(last_msg, 'content') else ""
             if any(kw in content for kw in ['生成', '导出', '下载', '输出']):
@@ -292,8 +273,8 @@ def route_from_router(state: MultiAgentState) -> str:
             elif any(kw in content for kw in ['修改', '更新', '改一下', '调整']):
                 return "filling"
             else:
-                return "filling"  # 默认回填充阶段处理后续交互
-        
+                return "filling"
+
         return "__end__"
 
 
@@ -313,7 +294,8 @@ def route_after_filling(state: MultiAgentState) -> str:
 # ── 图构建 ──
 def build_agent(ctx=None) -> CompiledStateGraph:
     """构建多Agent协作图（Router + 条件路由）"""
-    llm = _build_llm()
+    # Bug 2 修复：ctx 传入 _build_llm 用于平台认证
+    llm = _build_llm(ctx)
     tools = _load_tools()
     checkpointer = get_memory_saver()
 
@@ -321,7 +303,16 @@ def build_agent(ctx=None) -> CompiledStateGraph:
     if not os.path.isfile(cfg_path):
         cfg_path = os.path.join(os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"), "config", "agent_llm_config.json")
     with open(cfg_path, "r", encoding="utf-8") as f:
-        cfg = json.load(f)
+        raw_cfg = json.load(f)
+
+    # Bug 3 修复：从 cfg.config 读取
+    cfg = raw_cfg.get("config", raw_cfg)
+
+    # Bug 1 修复：使用 pre_model_hook 做消息清理（create_react_agent 不支持 middleware）
+    common_kwargs = dict(
+        state_schema=MultiAgentState,
+        pre_model_hook=_sanitize_messages,
+    )
 
     # ── 知识提取 Agent ──
     knowledge_agent = create_react_agent(
@@ -333,9 +324,9 @@ def build_agent(ctx=None) -> CompiledStateGraph:
             tools["prefill_from_old_report"],
             tools["get_fill_checklist"],
         ],
-        prompt=cfg.get("knowledge_sp", cfg.get("sp", "")),
-        state_schema=MultiAgentState,
+        prompt=cfg.get("knowledge_sp", raw_cfg.get("sp", "")),
         name="knowledge_extraction",
+        **common_kwargs,
     )
 
     # ── 填充 Agent ──
@@ -351,9 +342,9 @@ def build_agent(ctx=None) -> CompiledStateGraph:
             tools["prefill_from_knowledge"],
             tools["prefill_from_multiple_knowledge"],
         ],
-        prompt=cfg.get("filling_sp", cfg.get("sp", "")),
-        state_schema=MultiAgentState,
+        prompt=cfg.get("filling_sp", raw_cfg.get("sp", "")),
         name="filling",
+        **common_kwargs,
     )
 
     # ── 生成 Agent ──
@@ -365,9 +356,9 @@ def build_agent(ctx=None) -> CompiledStateGraph:
             tools["generate_from_template"],
             tools["analyze_report_template"],
         ],
-        prompt=cfg.get("generation_sp", cfg.get("sp", "")),
-        state_schema=MultiAgentState,
+        prompt=cfg.get("generation_sp", raw_cfg.get("sp", "")),
         name="generation",
+        **common_kwargs,
     )
 
     # ── 构建 StateGraph（Router + 条件路由）──
