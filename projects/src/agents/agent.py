@@ -324,7 +324,7 @@ def build_agent(ctx=None) -> CompiledStateGraph:
             tools["prefill_from_old_report"],
             tools["get_fill_checklist"],
         ],
-        prompt=cfg.get("knowledge_sp", raw_cfg.get("sp", "")),
+        prompt=raw_cfg.get("knowledge_sp", raw_cfg.get("sp", "")),
         name="knowledge_extraction",
         **common_kwargs,
     )
@@ -342,7 +342,7 @@ def build_agent(ctx=None) -> CompiledStateGraph:
             tools["prefill_from_knowledge"],
             tools["prefill_from_multiple_knowledge"],
         ],
-        prompt=cfg.get("filling_sp", raw_cfg.get("sp", "")),
+        prompt=raw_cfg.get("filling_sp", raw_cfg.get("sp", "")),
         name="filling",
         **common_kwargs,
     )
@@ -356,7 +356,7 @@ def build_agent(ctx=None) -> CompiledStateGraph:
             tools["generate_from_template"],
             tools["analyze_report_template"],
         ],
-        prompt=cfg.get("generation_sp", raw_cfg.get("sp", "")),
+        prompt=raw_cfg.get("generation_sp", raw_cfg.get("sp", "")),
         name="generation",
         **common_kwargs,
     )
