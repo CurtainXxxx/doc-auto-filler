@@ -63,9 +63,12 @@ TEST_MATRIX = {
 
 def resolve_path(relative_path: str) -> str:
     """解析文件路径（兼容 Coze 和本地）"""
-    full = os.path.join(WORKSPACE, relative_path)
-    if os.path.isfile(full):
-        return full
+    # 优先检查 WORKSPACE/projects（工作区根下有子项目）
+    project_root = os.path.join(WORKSPACE, "projects")
+    for base in [WORKSPACE, project_root]:
+        full = os.path.join(base, relative_path)
+        if os.path.isfile(full):
+            return full
     return relative_path
 
 

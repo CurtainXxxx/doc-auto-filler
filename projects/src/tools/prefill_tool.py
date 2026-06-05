@@ -15,9 +15,12 @@ import re
 import json
 from dotenv import load_dotenv
 
-# 加载项目根目录的 .env 文件
-_workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
-load_dotenv(os.path.join(_workspace, ".env"), override=True)
+# 加载项目根目录的 .env 文件（兼容工作区根/子项目两种布局）
+_env_base = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
+_env_path = os.path.join(_env_base, ".env")
+if not os.path.isfile(_env_path):
+    _env_path = os.path.join(_env_base, "projects", ".env")
+load_dotenv(_env_path, override=True)
 
 from langchain.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -402,6 +405,7 @@ def _call_llm(system_prompt: str, user_prompt: str, ctx=None) -> str:
         last_error = None
         for attempt in range(3):
             try:
+                print(f"[prefill] 使用外部模型: {ext_model} @ {ext_base_url}")
                 ext_llm = ChatOpenAI(
                     model=ext_model,
                     api_key=ext_api_key,
@@ -425,7 +429,7 @@ def _call_llm(system_prompt: str, user_prompt: str, ctx=None) -> str:
         ]
         response = client.invoke(
             messages=messages,
-            model="doubao-seed-1-6-lite-251015",
+            model="doubao-seed-1-6-251015",
             temperature=0.1,
             max_completion_tokens=4096,
         )

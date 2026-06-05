@@ -1,0 +1,3614 @@
+[
+  {
+    "success": true,
+    "template": "考场记录表",
+    "difficulty": "简单",
+    "total_fields": 9,
+    "prefilled": 9,
+    "needs_review": 9,
+    "still_empty": 0,
+    "fill_rate_pct": 100.0,
+    "elapsed": 0.6,
+    "message": "从1个文件中预填 9/9 个字段",
+    "field_details": [
+      {
+        "label": "主讲教师签名",
+        "field_id": "T0_R15_C1",
+        "value": "张明",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "应到人数",
+        "field_id": "T0_R3_C3",
+        "value": "45",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "考试课程",
+        "field_id": "T0_R0_C1",
+        "value": "数据结构",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "考试时间",
+        "field_id": "T0_R1_C1",
+        "value": "2024年1月15日 上午 9:00-11:00",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "班主任签名",
+        "field_id": "T0_R15_C3",
+        "value": "刘伟",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "考试教室",
+        "field_id": "T0_R3_C1",
+        "value": "第二教学楼2203",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "实到人数",
+        "field_id": "T0_R3_C5",
+        "value": "43",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "考生所在院系",
+        "field_id": "T0_R2_C1",
+        "value": "计算机与智能教育学院",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "考试方式",
+        "field_id": "T0_R6_CHK",
+        "value": "闭卷",
+        "confidence": 0.75,
+        "status": "review"
+      }
+    ]
+  },
+  {
+    "success": true,
+    "template": "考场记录表",
+    "difficulty": "中等",
+    "total_fields": 9,
+    "prefilled": 0,
+    "needs_review": 0,
+    "still_empty": 9,
+    "fill_rate_pct": 0.0,
+    "elapsed": 0.3,
+    "message": "从1个文件中预填 0/9 个字段",
+    "field_details": [
+      {
+        "label": "主讲教师签名",
+        "field_id": "T0_R15_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "应到人数",
+        "field_id": "T0_R3_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试课程",
+        "field_id": "T0_R0_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试时间",
+        "field_id": "T0_R1_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "班主任签名",
+        "field_id": "T0_R15_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试教室",
+        "field_id": "T0_R3_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实到人数",
+        "field_id": "T0_R3_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考生所在院系",
+        "field_id": "T0_R2_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试方式",
+        "field_id": "T0_R6_CHK",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      }
+    ]
+  },
+  {
+    "success": true,
+    "template": "考场记录表",
+    "difficulty": "困难",
+    "total_fields": 9,
+    "prefilled": 0,
+    "needs_review": 0,
+    "still_empty": 9,
+    "fill_rate_pct": 0.0,
+    "elapsed": 0.4,
+    "message": "从1个文件中预填 0/9 个字段",
+    "field_details": [
+      {
+        "label": "主讲教师签名",
+        "field_id": "T0_R15_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "应到人数",
+        "field_id": "T0_R3_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试课程",
+        "field_id": "T0_R0_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试时间",
+        "field_id": "T0_R1_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "班主任签名",
+        "field_id": "T0_R15_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试教室",
+        "field_id": "T0_R3_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实到人数",
+        "field_id": "T0_R3_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考生所在院系",
+        "field_id": "T0_R2_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试方式",
+        "field_id": "T0_R6_CHK",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      }
+    ]
+  },
+  {
+    "success": true,
+    "template": "教务数据申请",
+    "difficulty": "简单",
+    "total_fields": 14,
+    "prefilled": 8,
+    "needs_review": 8,
+    "still_empty": 6,
+    "fill_rate_pct": 57.1,
+    "elapsed": 0.2,
+    "message": "从1个文件中预填 8/14 个字段",
+    "field_details": [
+      {
+        "label": "负责人签名",
+        "field_id": "T0_R6_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请部门公章",
+        "field_id": "T0_R6_C0_L1",
+        "value": "教务处（已盖章）",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "数据申请部门",
+        "field_id": "T0_R0_C1",
+        "value": "教务处教学运行科",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "申请时间",
+        "field_id": "T0_R0_C3",
+        "value": "2024年3月10日",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "数据用途",
+        "field_id": "T0_R4_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "安全和保密承诺",
+        "field_id": "T0_R5_C0_L0",
+        "value": "本人承诺所申请数据仅用于教学运行管理工作，不向第三方泄露，不用于商业用途，严格遵守学校数据安全管理规",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "申请人姓名",
+        "field_id": "T0_R1_C1",
+        "value": "李华",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "电子邮箱",
+        "field_id": "T0_R2_C3",
+        "value": "lihua@lnnu.edu.cn",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "申请人签名",
+        "field_id": "T0_R5_C0_L1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "工资号",
+        "field_id": "T0_R1_C3",
+        "value": "20190567",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "申请数据描述",
+        "field_id": "T0_R3_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "负责人签名",
+        "field_id": "T0_R7_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "负责人签名",
+        "field_id": "T0_R8_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "联系电话",
+        "field_id": "T0_R2_C1",
+        "value": "13812345678",
+        "confidence": 0.75,
+        "status": "review"
+      }
+    ]
+  },
+  {
+    "success": true,
+    "template": "教务数据申请",
+    "difficulty": "中等",
+    "total_fields": 14,
+    "prefilled": 0,
+    "needs_review": 0,
+    "still_empty": 14,
+    "fill_rate_pct": 0.0,
+    "elapsed": 0.2,
+    "message": "从1个文件中预填 0/14 个字段",
+    "field_details": [
+      {
+        "label": "负责人签名",
+        "field_id": "T0_R6_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请部门公章",
+        "field_id": "T0_R6_C0_L1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "数据申请部门",
+        "field_id": "T0_R0_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请时间",
+        "field_id": "T0_R0_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "数据用途",
+        "field_id": "T0_R4_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "安全和保密承诺",
+        "field_id": "T0_R5_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请人姓名",
+        "field_id": "T0_R1_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "电子邮箱",
+        "field_id": "T0_R2_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请人签名",
+        "field_id": "T0_R5_C0_L1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "工资号",
+        "field_id": "T0_R1_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请数据描述",
+        "field_id": "T0_R3_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "负责人签名",
+        "field_id": "T0_R7_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "负责人签名",
+        "field_id": "T0_R8_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "联系电话",
+        "field_id": "T0_R2_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      }
+    ]
+  },
+  {
+    "success": true,
+    "template": "教务数据申请",
+    "difficulty": "困难",
+    "total_fields": 14,
+    "prefilled": 0,
+    "needs_review": 0,
+    "still_empty": 14,
+    "fill_rate_pct": 0.0,
+    "elapsed": 0.2,
+    "message": "从1个文件中预填 0/14 个字段",
+    "field_details": [
+      {
+        "label": "负责人签名",
+        "field_id": "T0_R6_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请部门公章",
+        "field_id": "T0_R6_C0_L1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "数据申请部门",
+        "field_id": "T0_R0_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请时间",
+        "field_id": "T0_R0_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "数据用途",
+        "field_id": "T0_R4_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "安全和保密承诺",
+        "field_id": "T0_R5_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请人姓名",
+        "field_id": "T0_R1_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "电子邮箱",
+        "field_id": "T0_R2_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请人签名",
+        "field_id": "T0_R5_C0_L1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "工资号",
+        "field_id": "T0_R1_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请数据描述",
+        "field_id": "T0_R3_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "负责人签名",
+        "field_id": "T0_R7_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "负责人签名",
+        "field_id": "T0_R8_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "联系电话",
+        "field_id": "T0_R2_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      }
+    ]
+  },
+  {
+    "success": true,
+    "template": "教材建设申报",
+    "difficulty": "简单",
+    "total_fields": 29,
+    "prefilled": 5,
+    "needs_review": 5,
+    "still_empty": 24,
+    "fill_rate_pct": 17.2,
+    "elapsed": 0.4,
+    "message": "从1个文件中预填 5/29 个字段",
+    "field_details": [
+      {
+        "label": "所在院系",
+        "field_id": "P11",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "适用对象",
+        "field_id": "T1_R2_C1",
+        "value": "计算机科学与技术专业本科生",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "姓名",
+        "field_id": "T0_R0_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "联系电话",
+        "field_id": "P12",
+        "value": "13987654321",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "课程类别",
+        "field_id": "T1_R3_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请日期",
+        "field_id": "P13",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "主要教学经历",
+        "field_id": "T0_R3_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "内容简介及章节目录（可另附页）",
+        "field_id": "T1_R7_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "性别",
+        "field_id": "T0_R0_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教材所对应\n课程名称",
+        "field_id": "T1_R3_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "电子邮箱",
+        "field_id": "T0_R2_C1",
+        "value": "zhoujg@ustc.edu.cn",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "新编/修订/数字",
+        "field_id": "T1_R1_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "主要教学、科学研究、实践经历",
+        "field_id": "T0_R4_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "专业技术职务",
+        "field_id": "T0_R1_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "主编姓名",
+        "field_id": "P10",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "研究领域",
+        "field_id": "T0_R1_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请资助金额",
+        "field_id": "T1_R6_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课号",
+        "field_id": "T1_R4_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学时/学分",
+        "field_id": "T1_R4_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教材名称",
+        "field_id": "P9",
+        "value": "人工智能导论——从原理到实践",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "适用学科",
+        "field_id": "T1_R2_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "曾经编写过的教材",
+        "field_id": "T0_R5_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "拟报出版社名称",
+        "field_id": "T1_R5_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "行政职务",
+        "field_id": "T0_R1_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教材名称",
+        "field_id": "T1_R0_C1",
+        "value": "人工智能导论——从原理到实践",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "预计交稿时间",
+        "field_id": "T1_R5_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "日期",
+        "field_id": "T2_R1_C0_L1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "预估字数",
+        "field_id": "T1_R1_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "出生年月",
+        "field_id": "T0_R0_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      }
+    ]
+  },
+  {
+    "success": true,
+    "template": "教材建设申报",
+    "difficulty": "中等",
+    "total_fields": 29,
+    "prefilled": 0,
+    "needs_review": 0,
+    "still_empty": 29,
+    "fill_rate_pct": 0.0,
+    "elapsed": 0.2,
+    "message": "从1个文件中预填 0/29 个字段",
+    "field_details": [
+      {
+        "label": "所在院系",
+        "field_id": "P11",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "适用对象",
+        "field_id": "T1_R2_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "姓名",
+        "field_id": "T0_R0_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "联系电话",
+        "field_id": "P12",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程类别",
+        "field_id": "T1_R3_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请日期",
+        "field_id": "P13",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "主要教学经历",
+        "field_id": "T0_R3_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "内容简介及章节目录（可另附页）",
+        "field_id": "T1_R7_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "性别",
+        "field_id": "T0_R0_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教材所对应\n课程名称",
+        "field_id": "T1_R3_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "电子邮箱",
+        "field_id": "T0_R2_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "新编/修订/数字",
+        "field_id": "T1_R1_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "主要教学、科学研究、实践经历",
+        "field_id": "T0_R4_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "专业技术职务",
+        "field_id": "T0_R1_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "主编姓名",
+        "field_id": "P10",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "研究领域",
+        "field_id": "T0_R1_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请资助金额",
+        "field_id": "T1_R6_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课号",
+        "field_id": "T1_R4_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学时/学分",
+        "field_id": "T1_R4_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教材名称",
+        "field_id": "P9",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "适用学科",
+        "field_id": "T1_R2_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "曾经编写过的教材",
+        "field_id": "T0_R5_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "拟报出版社名称",
+        "field_id": "T1_R5_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "行政职务",
+        "field_id": "T0_R1_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教材名称",
+        "field_id": "T1_R0_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "预计交稿时间",
+        "field_id": "T1_R5_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "日期",
+        "field_id": "T2_R1_C0_L1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "预估字数",
+        "field_id": "T1_R1_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "出生年月",
+        "field_id": "T0_R0_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      }
+    ]
+  },
+  {
+    "success": true,
+    "template": "教材建设申报",
+    "difficulty": "困难",
+    "total_fields": 29,
+    "prefilled": 0,
+    "needs_review": 0,
+    "still_empty": 29,
+    "fill_rate_pct": 0.0,
+    "elapsed": 0.2,
+    "message": "从1个文件中预填 0/29 个字段",
+    "field_details": [
+      {
+        "label": "所在院系",
+        "field_id": "P11",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "适用对象",
+        "field_id": "T1_R2_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "姓名",
+        "field_id": "T0_R0_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "联系电话",
+        "field_id": "P12",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程类别",
+        "field_id": "T1_R3_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请日期",
+        "field_id": "P13",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "主要教学经历",
+        "field_id": "T0_R3_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "内容简介及章节目录（可另附页）",
+        "field_id": "T1_R7_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "性别",
+        "field_id": "T0_R0_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教材所对应\n课程名称",
+        "field_id": "T1_R3_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "电子邮箱",
+        "field_id": "T0_R2_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "新编/修订/数字",
+        "field_id": "T1_R1_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "主要教学、科学研究、实践经历",
+        "field_id": "T0_R4_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "专业技术职务",
+        "field_id": "T0_R1_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "主编姓名",
+        "field_id": "P10",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "研究领域",
+        "field_id": "T0_R1_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "申请资助金额",
+        "field_id": "T1_R6_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课号",
+        "field_id": "T1_R4_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学时/学分",
+        "field_id": "T1_R4_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教材名称",
+        "field_id": "P9",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "适用学科",
+        "field_id": "T1_R2_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "曾经编写过的教材",
+        "field_id": "T0_R5_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "拟报出版社名称",
+        "field_id": "T1_R5_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "行政职务",
+        "field_id": "T0_R1_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教材名称",
+        "field_id": "T1_R0_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "预计交稿时间",
+        "field_id": "T1_R5_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "日期",
+        "field_id": "T2_R1_C0_L1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "预估字数",
+        "field_id": "T1_R1_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "出生年月",
+        "field_id": "T0_R0_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      }
+    ]
+  },
+  {
+    "success": true,
+    "template": "试卷分析",
+    "difficulty": "简单",
+    "total_fields": 40,
+    "prefilled": 16,
+    "needs_review": 16,
+    "still_empty": 24,
+    "fill_rate_pct": 40.0,
+    "elapsed": 0.3,
+    "message": "从1个文件中预填 16/40 个字段",
+    "field_details": [
+      {
+        "label": "分数分布_80-89",
+        "field_id": "T0_R11_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "最低分",
+        "field_id": "T0_R13_C6",
+        "value": "38",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "学生班级_实到",
+        "field_id": "T0_R7_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "失分题及失分原因",
+        "field_id": "T0_R16_C0_L2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_三题",
+        "field_id": "T0_R9_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教师姓名",
+        "field_id": "T0_R3_C1",
+        "value": "王明",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "及百分比_七题",
+        "field_id": "T0_R9_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "命题形式",
+        "field_id": "T0_R4_C2",
+        "value": "教师组题",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "及百分比_九题",
+        "field_id": "T0_R9_C9",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "分数分布_<60",
+        "field_id": "T0_R11_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_第1列",
+        "field_id": "T0_R7_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "分数分布_60-69",
+        "field_id": "T0_R11_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_缺考",
+        "field_id": "T0_R7_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "分数分布_70-79",
+        "field_id": "T0_R11_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "标准差",
+        "field_id": "T0_R13_C8",
+        "value": "14.2",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "学生班级_缓考",
+        "field_id": "T0_R7_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_系主任签字：",
+        "field_id": "T0_R18_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "最高分",
+        "field_id": "T0_R13_C4",
+        "value": "97",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "学生班级",
+        "field_id": "T0_R6_C1",
+        "value": "计算机2301班",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "及百分比_八题",
+        "field_id": "T0_R9_C8",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_四题",
+        "field_id": "T0_R9_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "命题形式",
+        "field_id": "T0_R4_CHK",
+        "value": "教师组题",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "分数分布_90-100",
+        "field_id": "T0_R11_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程名称",
+        "field_id": "T0_R2_C1",
+        "value": "数据结构与算法",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "及百分比_五题",
+        "field_id": "T0_R9_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_取消考试资格",
+        "field_id": "T0_R7_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_作弊",
+        "field_id": "T0_R7_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试形式",
+        "field_id": "T0_R5_C2",
+        "value": "闭卷",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "第4行_任课教师签字：",
+        "field_id": "T0_R18_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_一题",
+        "field_id": "T0_R9_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程性质",
+        "field_id": "T0_R3_CHK",
+        "value": "必修",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "学生班级_应到",
+        "field_id": "T0_R7_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "开课单位",
+        "field_id": "T0_R2_C5",
+        "value": "计算机科学与技术学院",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "平均分",
+        "field_id": "T0_R13_C2",
+        "value": "76.8",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "课程性质",
+        "field_id": "T0_R3_C4",
+        "value": "必修",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "学时数",
+        "field_id": "T0_R2_C3",
+        "value": "64",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "教考分离",
+        "field_id": "T0_R5_C7",
+        "value": "否",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "及百分比_二题",
+        "field_id": "T0_R9_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_六题",
+        "field_id": "T0_R9_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试形式",
+        "field_id": "T0_R5_CHK",
+        "value": "闭卷",
+        "confidence": 0.75,
+        "status": "review"
+      }
+    ]
+  },
+  {
+    "success": true,
+    "template": "试卷分析",
+    "difficulty": "中等",
+    "total_fields": 40,
+    "prefilled": 1,
+    "needs_review": 1,
+    "still_empty": 39,
+    "fill_rate_pct": 2.5,
+    "elapsed": 0.3,
+    "message": "从1个文件中预填 1/40 个字段",
+    "field_details": [
+      {
+        "label": "分数分布_80-89",
+        "field_id": "T0_R11_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "最低分",
+        "field_id": "T0_R13_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_实到",
+        "field_id": "T0_R7_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "失分题及失分原因",
+        "field_id": "T0_R16_C0_L2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_三题",
+        "field_id": "T0_R9_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教师姓名",
+        "field_id": "T0_R3_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_七题",
+        "field_id": "T0_R9_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "命题形式",
+        "field_id": "T0_R4_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_九题",
+        "field_id": "T0_R9_C9",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "分数分布_<60",
+        "field_id": "T0_R11_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_第1列",
+        "field_id": "T0_R7_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "分数分布_60-69",
+        "field_id": "T0_R11_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_缺考",
+        "field_id": "T0_R7_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "分数分布_70-79",
+        "field_id": "T0_R11_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "标准差",
+        "field_id": "T0_R13_C8",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_缓考",
+        "field_id": "T0_R7_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_系主任签字：",
+        "field_id": "T0_R18_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "最高分",
+        "field_id": "T0_R13_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级",
+        "field_id": "T0_R6_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_八题",
+        "field_id": "T0_R9_C8",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_四题",
+        "field_id": "T0_R9_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "命题形式",
+        "field_id": "T0_R4_CHK",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "分数分布_90-100",
+        "field_id": "T0_R11_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程名称",
+        "field_id": "T0_R2_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_五题",
+        "field_id": "T0_R9_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_取消考试资格",
+        "field_id": "T0_R7_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_作弊",
+        "field_id": "T0_R7_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试形式",
+        "field_id": "T0_R5_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_任课教师签字：",
+        "field_id": "T0_R18_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_一题",
+        "field_id": "T0_R9_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程性质",
+        "field_id": "T0_R3_CHK",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_应到",
+        "field_id": "T0_R7_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "开课单位",
+        "field_id": "T0_R2_C5",
+        "value": "计算机科学与技术学院",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "平均分",
+        "field_id": "T0_R13_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程性质",
+        "field_id": "T0_R3_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学时数",
+        "field_id": "T0_R2_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教考分离",
+        "field_id": "T0_R5_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_二题",
+        "field_id": "T0_R9_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_六题",
+        "field_id": "T0_R9_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试形式",
+        "field_id": "T0_R5_CHK",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      }
+    ]
+  },
+  {
+    "success": true,
+    "template": "试卷分析",
+    "difficulty": "困难",
+    "total_fields": 40,
+    "prefilled": 0,
+    "needs_review": 0,
+    "still_empty": 40,
+    "fill_rate_pct": 0.0,
+    "elapsed": 0.2,
+    "message": "从1个文件中预填 0/40 个字段",
+    "field_details": [
+      {
+        "label": "分数分布_80-89",
+        "field_id": "T0_R11_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "最低分",
+        "field_id": "T0_R13_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_实到",
+        "field_id": "T0_R7_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "失分题及失分原因",
+        "field_id": "T0_R16_C0_L2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_三题",
+        "field_id": "T0_R9_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教师姓名",
+        "field_id": "T0_R3_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_七题",
+        "field_id": "T0_R9_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "命题形式",
+        "field_id": "T0_R4_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_九题",
+        "field_id": "T0_R9_C9",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "分数分布_<60",
+        "field_id": "T0_R11_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_第1列",
+        "field_id": "T0_R7_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "分数分布_60-69",
+        "field_id": "T0_R11_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_缺考",
+        "field_id": "T0_R7_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "分数分布_70-79",
+        "field_id": "T0_R11_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "标准差",
+        "field_id": "T0_R13_C8",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_缓考",
+        "field_id": "T0_R7_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_系主任签字：",
+        "field_id": "T0_R18_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "最高分",
+        "field_id": "T0_R13_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级",
+        "field_id": "T0_R6_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_八题",
+        "field_id": "T0_R9_C8",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_四题",
+        "field_id": "T0_R9_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "命题形式",
+        "field_id": "T0_R4_CHK",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "分数分布_90-100",
+        "field_id": "T0_R11_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程名称",
+        "field_id": "T0_R2_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_五题",
+        "field_id": "T0_R9_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_取消考试资格",
+        "field_id": "T0_R7_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_作弊",
+        "field_id": "T0_R7_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试形式",
+        "field_id": "T0_R5_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_任课教师签字：",
+        "field_id": "T0_R18_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_一题",
+        "field_id": "T0_R9_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程性质",
+        "field_id": "T0_R3_CHK",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学生班级_应到",
+        "field_id": "T0_R7_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "开课单位",
+        "field_id": "T0_R2_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平均分",
+        "field_id": "T0_R13_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程性质",
+        "field_id": "T0_R3_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "学时数",
+        "field_id": "T0_R2_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教考分离",
+        "field_id": "T0_R5_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_二题",
+        "field_id": "T0_R9_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "及百分比_六题",
+        "field_id": "T0_R9_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试形式",
+        "field_id": "T0_R5_CHK",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      }
+    ]
+  },
+  {
+    "success": true,
+    "template": "关联矩阵",
+    "difficulty": "中等",
+    "total_fields": 42,
+    "prefilled": 0,
+    "needs_review": 0,
+    "still_empty": 42,
+    "fill_rate_pct": 0.0,
+    "elapsed": 0.5,
+    "message": "从1个文件中预填 0/42 个字段",
+    "field_details": [
+      {
+        "label": "第1题_难度系数",
+        "field_id": "T2_R2_C10",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_记忆",
+        "field_id": "T2_R3_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_题型",
+        "field_id": "T2_R5_C9",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_记忆",
+        "field_id": "T2_R4_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_创造",
+        "field_id": "T2_R5_C8",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_运用",
+        "field_id": "T2_R3_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_评价",
+        "field_id": "T2_R3_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_创造",
+        "field_id": "T2_R3_C8",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_知识内容",
+        "field_id": "T2_R5_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_题型",
+        "field_id": "T2_R2_C9",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_评价",
+        "field_id": "T2_R5_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_题序",
+        "field_id": "T2_R4_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_题序",
+        "field_id": "T2_R5_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_知识内容",
+        "field_id": "T2_R3_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_难度系数",
+        "field_id": "T2_R3_C10",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_评价",
+        "field_id": "T2_R2_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_创造",
+        "field_id": "T2_R2_C8",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_运用",
+        "field_id": "T2_R5_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_分析",
+        "field_id": "T2_R5_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_创造",
+        "field_id": "T2_R4_C8",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_分析",
+        "field_id": "T2_R3_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_评价",
+        "field_id": "T2_R4_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_分值",
+        "field_id": "T2_R3_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_题型",
+        "field_id": "T2_R3_C9",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_分析",
+        "field_id": "T2_R2_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_理解",
+        "field_id": "T2_R3_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_理解",
+        "field_id": "T2_R5_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_难度系数",
+        "field_id": "T2_R5_C10",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_分值",
+        "field_id": "T2_R5_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_运用",
+        "field_id": "T2_R2_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_分值",
+        "field_id": "T2_R2_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_题型",
+        "field_id": "T2_R4_C9",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_分析",
+        "field_id": "T2_R4_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_分值",
+        "field_id": "T2_R4_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_难度系数",
+        "field_id": "T2_R4_C10",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_知识内容",
+        "field_id": "T2_R2_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_运用",
+        "field_id": "T2_R4_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_理解",
+        "field_id": "T2_R2_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_知识内容",
+        "field_id": "T2_R4_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_记忆",
+        "field_id": "T2_R5_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_记忆",
+        "field_id": "T2_R2_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_理解",
+        "field_id": "T2_R4_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      }
+    ]
+  },
+  {
+    "success": true,
+    "template": "关联矩阵",
+    "difficulty": "困难",
+    "total_fields": 42,
+    "prefilled": 0,
+    "needs_review": 0,
+    "still_empty": 42,
+    "fill_rate_pct": 0.0,
+    "elapsed": 0.6,
+    "message": "从1个文件中预填 0/42 个字段",
+    "field_details": [
+      {
+        "label": "第1题_难度系数",
+        "field_id": "T2_R2_C10",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_记忆",
+        "field_id": "T2_R3_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_题型",
+        "field_id": "T2_R5_C9",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_记忆",
+        "field_id": "T2_R4_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_创造",
+        "field_id": "T2_R5_C8",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_运用",
+        "field_id": "T2_R3_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_评价",
+        "field_id": "T2_R3_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_创造",
+        "field_id": "T2_R3_C8",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_知识内容",
+        "field_id": "T2_R5_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_题型",
+        "field_id": "T2_R2_C9",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_评价",
+        "field_id": "T2_R5_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_题序",
+        "field_id": "T2_R4_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_题序",
+        "field_id": "T2_R5_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_知识内容",
+        "field_id": "T2_R3_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_难度系数",
+        "field_id": "T2_R3_C10",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_评价",
+        "field_id": "T2_R2_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_创造",
+        "field_id": "T2_R2_C8",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_运用",
+        "field_id": "T2_R5_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_分析",
+        "field_id": "T2_R5_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_创造",
+        "field_id": "T2_R4_C8",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_分析",
+        "field_id": "T2_R3_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_评价",
+        "field_id": "T2_R4_C7",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_分值",
+        "field_id": "T2_R3_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_题型",
+        "field_id": "T2_R3_C9",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_分析",
+        "field_id": "T2_R2_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第2题_理解",
+        "field_id": "T2_R3_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_理解",
+        "field_id": "T2_R5_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_难度系数",
+        "field_id": "T2_R5_C10",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_分值",
+        "field_id": "T2_R5_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_运用",
+        "field_id": "T2_R2_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_分值",
+        "field_id": "T2_R2_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_题型",
+        "field_id": "T2_R4_C9",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_分析",
+        "field_id": "T2_R4_C6",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_分值",
+        "field_id": "T2_R4_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_难度系数",
+        "field_id": "T2_R4_C10",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_知识内容",
+        "field_id": "T2_R2_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_运用",
+        "field_id": "T2_R4_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_理解",
+        "field_id": "T2_R2_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_知识内容",
+        "field_id": "T2_R4_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第4行_记忆",
+        "field_id": "T2_R5_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第1题_记忆",
+        "field_id": "T2_R2_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "第3行_理解",
+        "field_id": "T2_R4_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      }
+    ]
+  },
+  {
+    "success": true,
+    "template": "评价报告",
+    "difficulty": "中等",
+    "total_fields": 62,
+    "prefilled": 2,
+    "needs_review": 2,
+    "still_empty": 60,
+    "fill_rate_pct": 3.2,
+    "elapsed": 0.9,
+    "message": "从1个文件中预填 2/62 个字段",
+    "field_details": [
+      {
+        "label": "期末考试_第2列",
+        "field_id": "T1_R27_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标1_1",
+        "field_id": "T1_R10_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末考试_第1列",
+        "field_id": "T1_R27_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标3_1",
+        "field_id": "T1_R12_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标3_5",
+        "field_id": "T1_R12_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标4_1",
+        "field_id": "T1_R13_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实现途径",
+        "field_id": "T1_R18_C1_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教学班级",
+        "field_id": "T0_R1_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实验成绩_第1列",
+        "field_id": "T1_R29_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末考试_第4列",
+        "field_id": "T1_R27_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末",
+        "field_id": "T0_R0_C2_L2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实验成绩_课程目标",
+        "field_id": "T1_R20_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末考试_课程目标",
+        "field_id": "T1_R18_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "参与人",
+        "field_id": "T0_R1_C2_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标1_5",
+        "field_id": "T1_R10_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时成绩_第1列",
+        "field_id": "T1_R28_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标1_2",
+        "field_id": "T1_R10_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时成绩_第2列",
+        "field_id": "T1_R28_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试类别",
+        "field_id": "T0_R0_C2_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末考试_实际平均分",
+        "field_id": "T1_R18_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标2_3",
+        "field_id": "T1_R11_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时",
+        "field_id": "T0_R0_C2_L1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实验成绩_第2列",
+        "field_id": "T1_R29_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标1_第26列",
+        "field_id": "T1_R10_C26",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标3_2",
+        "field_id": "T1_R12_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实验成绩_第3列",
+        "field_id": "T1_R29_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "改进措施",
+        "field_id": "T1_R33_C0_L1",
+        "value": "1.增加综合性实验项目 2.加强算法复杂度分析训练 3.引入更多工程应用案例",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "参评人数",
+        "field_id": "T0_R0_C3_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标3_3",
+        "field_id": "T1_R12_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实验成绩_目标分值",
+        "field_id": "T1_R20_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时成绩_第3列",
+        "field_id": "T1_R28_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标1_4",
+        "field_id": "T1_R10_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时成绩_课程目标",
+        "field_id": "T1_R19_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时成绩_目标分值",
+        "field_id": "T1_R19_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "开课时间",
+        "field_id": "T0_R0_C1_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标3_4",
+        "field_id": "T1_R12_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "评价方法",
+        "field_id": "T1_R18_C1_L1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时成绩_实际平均分",
+        "field_id": "T1_R19_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标4_5",
+        "field_id": "T1_R13_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实验成绩_第4列",
+        "field_id": "T1_R29_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末考试_目标达成评价值",
+        "field_id": "T1_R18_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时成绩_目标达成评价值",
+        "field_id": "T1_R19_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标达成分布",
+        "field_id": "T1_R31_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标2_第26列",
+        "field_id": "T1_R11_C26",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程总结",
+        "field_id": "T1_R33_C0_L0",
+        "value": "大部分学生能掌握基本数据结构，在算法实现方面表现较好，但在复杂问题分析和优化方面仍需加强",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "实验成绩_目标达成评价值",
+        "field_id": "T1_R20_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标2_2",
+        "field_id": "T1_R11_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标4_3",
+        "field_id": "T1_R13_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实验成绩_实际平均分",
+        "field_id": "T1_R20_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标4_4",
+        "field_id": "T1_R13_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标4_2",
+        "field_id": "T1_R13_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标4_第26列",
+        "field_id": "T1_R13_C26",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标2_4",
+        "field_id": "T1_R11_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标2_1",
+        "field_id": "T1_R11_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "评价责任人",
+        "field_id": "T0_R1_C1_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时成绩_第4列",
+        "field_id": "T1_R28_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标3_第26列",
+        "field_id": "T1_R12_C26",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标2_5",
+        "field_id": "T1_R11_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标1_3",
+        "field_id": "T1_R10_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程名称",
+        "field_id": "T0_R0_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末考试_第3列",
+        "field_id": "T1_R27_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末考试_目标分值",
+        "field_id": "T1_R18_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      }
+    ]
+  },
+  {
+    "success": true,
+    "template": "评价报告",
+    "difficulty": "困难",
+    "total_fields": 62,
+    "prefilled": 1,
+    "needs_review": 1,
+    "still_empty": 61,
+    "fill_rate_pct": 1.6,
+    "elapsed": 0.8,
+    "message": "从1个文件中预填 1/62 个字段",
+    "field_details": [
+      {
+        "label": "期末考试_第2列",
+        "field_id": "T1_R27_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标1_1",
+        "field_id": "T1_R10_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末考试_第1列",
+        "field_id": "T1_R27_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标3_1",
+        "field_id": "T1_R12_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标3_5",
+        "field_id": "T1_R12_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标4_1",
+        "field_id": "T1_R13_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实现途径",
+        "field_id": "T1_R18_C1_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "教学班级",
+        "field_id": "T0_R1_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实验成绩_第1列",
+        "field_id": "T1_R29_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末考试_第4列",
+        "field_id": "T1_R27_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末",
+        "field_id": "T0_R0_C2_L2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实验成绩_课程目标",
+        "field_id": "T1_R20_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末考试_课程目标",
+        "field_id": "T1_R18_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "参与人",
+        "field_id": "T0_R1_C2_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标1_5",
+        "field_id": "T1_R10_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时成绩_第1列",
+        "field_id": "T1_R28_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标1_2",
+        "field_id": "T1_R10_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时成绩_第2列",
+        "field_id": "T1_R28_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "考试类别",
+        "field_id": "T0_R0_C2_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末考试_实际平均分",
+        "field_id": "T1_R18_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标2_3",
+        "field_id": "T1_R11_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时",
+        "field_id": "T0_R0_C2_L1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实验成绩_第2列",
+        "field_id": "T1_R29_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标1_第26列",
+        "field_id": "T1_R10_C26",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标3_2",
+        "field_id": "T1_R12_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实验成绩_第3列",
+        "field_id": "T1_R29_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "改进措施",
+        "field_id": "T1_R33_C0_L1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "参评人数",
+        "field_id": "T0_R0_C3_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标3_3",
+        "field_id": "T1_R12_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实验成绩_目标分值",
+        "field_id": "T1_R20_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时成绩_第3列",
+        "field_id": "T1_R28_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标1_4",
+        "field_id": "T1_R10_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时成绩_课程目标",
+        "field_id": "T1_R19_C0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时成绩_目标分值",
+        "field_id": "T1_R19_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "开课时间",
+        "field_id": "T0_R0_C1_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标3_4",
+        "field_id": "T1_R12_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "评价方法",
+        "field_id": "T1_R18_C1_L1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时成绩_实际平均分",
+        "field_id": "T1_R19_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标4_5",
+        "field_id": "T1_R13_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实验成绩_第4列",
+        "field_id": "T1_R29_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末考试_目标达成评价值",
+        "field_id": "T1_R18_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "平时成绩_目标达成评价值",
+        "field_id": "T1_R19_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标达成分布",
+        "field_id": "T1_R31_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标2_第26列",
+        "field_id": "T1_R11_C26",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程总结",
+        "field_id": "T1_R33_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实验成绩_目标达成评价值",
+        "field_id": "T1_R20_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标2_2",
+        "field_id": "T1_R11_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标4_3",
+        "field_id": "T1_R13_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "实验成绩_实际平均分",
+        "field_id": "T1_R20_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标4_4",
+        "field_id": "T1_R13_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标4_2",
+        "field_id": "T1_R13_C2",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标4_第26列",
+        "field_id": "T1_R13_C26",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标2_4",
+        "field_id": "T1_R11_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标2_1",
+        "field_id": "T1_R11_C1",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "评价责任人",
+        "field_id": "T0_R1_C1_L0",
+        "value": "王明",
+        "confidence": 0.75,
+        "status": "review"
+      },
+      {
+        "label": "平时成绩_第4列",
+        "field_id": "T1_R28_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标3_第26列",
+        "field_id": "T1_R12_C26",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标2_5",
+        "field_id": "T1_R11_C5",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程目标1_3",
+        "field_id": "T1_R10_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "课程名称",
+        "field_id": "T0_R0_C0_L0",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末考试_第3列",
+        "field_id": "T1_R27_C4",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      },
+      {
+        "label": "期末考试_目标分值",
+        "field_id": "T1_R18_C3",
+        "value": "",
+        "confidence": 0,
+        "status": "empty"
+      }
+    ]
+  }
+]
