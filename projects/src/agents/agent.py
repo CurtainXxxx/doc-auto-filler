@@ -11,7 +11,6 @@
 import os
 import re
 import json
-import functools
 from typing import Annotated
 from dotenv import load_dotenv
 
@@ -66,6 +65,7 @@ def _build_llm(ctx=None):
             base_url=os.getenv("EXTERNAL_LLM_BASE_URL", "https://api.deepseek.com/v1"),
             temperature=0.3,
             streaming=True,
+            timeout=600,
         )
 
     cfg_path = os.path.join(_project_root, "config", "agent_llm_config.json")
@@ -189,7 +189,12 @@ def _has_generation_done(messages: list) -> bool:
 
 # ── Router 节点 ──
 def router(state: MultiAgentState) -> dict:
-    """路由节点：根据对话状态决定下一个执行的 Agent。
+    """路由节点：无状态变更，仅作为条件边的起点。实际路由决策在 route_from_router。"""
+    return {"messages": []}
+
+
+def route_from_router(state: MultiAgentState) -> str:
+    """从 router 出发的条件边：根据对话状态决定下一个执行的 Agent。
 
     策略：
     - 知识未提取 → knowledge_extraction
@@ -197,52 +202,6 @@ def router(state: MultiAgentState) -> dict:
     - 已填充、未生成 → generation
     - 全部完成 → END
     """
-    messages = state.get("messages", [])
-
-    # 检查各阶段完成状态
-    knowledge_done = _has_facts(messages)
-    filling_done = _has_fields_filled(messages)
-    generation_done = _has_generation_done(messages)
-
-    # 决策逻辑
-    if not knowledge_done:
-        next_node = "knowledge_extraction"
-    elif not filling_done:
-        next_node = "filling"
-    elif not generation_done:
-        next_node = "generation"
-    else:
-        # 全部完成，检查用户最新消息意图
-        last_user_msg_idx = -1
-        for i in range(len(messages) - 1, -1, -1):
-            m = messages[i]
-            if hasattr(m, 'type') and m.type == 'human':
-                last_user_msg_idx = i
-                break
-
-        # 检查最后一条用户消息是否在生成完成之后
-        if last_user_msg_idx >= 0:
-            gen_done_idx = -1
-            for i, m in enumerate(messages):
-                if hasattr(m, 'content') and isinstance(m.content, str) and _RE_GENERATION_DONE.search(m.content):
-                    gen_done_idx = i
-                    break
-
-            # 如果用户消息在生成完成之后，说明是新请求
-            if gen_done_idx >= 0 and last_user_msg_idx > gen_done_idx:
-                last_msg = messages[last_user_msg_idx]
-                content = last_msg.content if hasattr(last_msg, 'content') else ""
-                if any(kw in content for kw in ['文件', '知识', '材料', '报告', '上传', '.txt', '.docx']):
-                    return {"messages": []}
-                return {"messages": []}
-
-        next_node = "__end__"
-
-    return {"messages": []}
-
-
-def route_from_router(state: MultiAgentState) -> str:
-    """从 router 出发的条件边"""
     messages = state.get("messages", [])
 
     knowledge_done = _has_facts(messages)
@@ -256,7 +215,7 @@ def route_from_router(state: MultiAgentState) -> str:
     elif not generation_done:
         return "generation"
     else:
-        # 检查是否有新的用户消息（生成后的追加请求）
+        # 全部完成，检查是否有新的用户消息（生成后的追加请求）
         last_user_msg_idx = -1
         for i in range(len(messages) - 1, -1, -1):
             m = messages[i]
@@ -272,7 +231,10 @@ def route_from_router(state: MultiAgentState) -> str:
         if gen_done_idx >= 0 and last_user_msg_idx > gen_done_idx:
             last_msg = messages[last_user_msg_idx]
             content = last_msg.content if hasattr(last_msg, 'content') else ""
-            if any(kw in content for kw in ['生成', '导出', '下载', '输出']):
+            # 新文档请求 → 重新走知识提取
+            if any(kw in content for kw in ['另一份', '新的', '再来', '下一个', '另外', '再填', '新模板', '新文档', '换个']):
+                return "knowledge_extraction"
+            elif any(kw in content for kw in ['生成', '导出', '下载', '输出']):
                 return "generation"
             elif any(kw in content for kw in ['修改', '更新', '改一下', '调整']):
                 return "filling"
