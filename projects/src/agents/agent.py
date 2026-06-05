@@ -1,7 +1,8 @@
-"""高校教务办公数字员工 - 多Agent协作系统（知识提取→填充→生成）
+"""高校教务办公数字员工 - 多Agent协作系统（Router + 条件路由）
 
-架构：StateGraph 3节点流水线
-  用户消息 → 知识提取Agent → 填充Agent → 生成Agent → 回复
+架构：Router 调度 + 条件边
+  START → Router → 知识提取Agent → 填充Agent → 生成Agent → END
+  Router 根据对话状态跳过已完成的阶段，避免无关 Agent 响应。
 
 每个Agent输出带标签（[知识提取Agent]/[填充Agent]/[生成Agent]），
 评审可直观看到多Agent协作过程。
@@ -19,7 +20,7 @@ if not os.path.isfile(_env_path):
 load_dotenv(_env_path, override=True)
 
 from langchain.agents.middleware import AgentMiddleware
-from langchain.messages import ToolMessage, AIMessage
+from langchain.messages import ToolMessage, AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from langgraph.graph import StateGraph, START, END, MessagesState
@@ -141,12 +142,179 @@ def _load_tools():
     }
 
 
+# ── 阶段检测 ──
+def _has_stage_marker(messages: list, marker: str) -> bool:
+    """检查消息历史中是否存在指定阶段标记"""
+    for m in messages:
+        if hasattr(m, 'content') and isinstance(m.content, str):
+            if marker in m.content:
+                return True
+    return False
+
+
+def _has_facts(messages: list) -> bool:
+    """检查知识提取是否完成（存在 [FACTS] 标签或知识提取Agent的总结输出）"""
+    for m in messages:
+        if hasattr(m, 'content') and isinstance(m.content, str):
+            content = m.content
+            # 检查 [FACTS] 标签
+            if '[FACTS]' in content and '[/FACTS]' in content:
+                return True
+            # 检查知识提取Agent的完成标记
+            if '[知识提取完成]' in content:
+                return True
+            # 检查 extract_facts 工具的成功返回
+            if '"fact_count"' in content and '"facts"' in content:
+                return True
+    return False
+
+
+def _has_fields_filled(messages: list) -> bool:
+    """检查字段填充是否完成（存在 [FIELDS] 标签或填充Agent的完成标记）"""
+    for m in messages:
+        if hasattr(m, 'content') and isinstance(m.content, str):
+            content = m.content
+            if '[FIELDS]' in content and '[/FIELDS]' in content:
+                return True
+            if '[填充完成]' in content:
+                return True
+            # 检查 update_form_fields 工具的成功返回（progress_pct > 0）
+            if '"progress_pct"' in content and '"success": true' in content:
+                return True
+    return False
+
+
+def _has_generation_done(messages: list) -> bool:
+    """检查文档生成是否已完成"""
+    for m in messages:
+        if hasattr(m, 'content') and isinstance(m.content, str):
+            content = m.content
+            if '[生成完成]' in content:
+                return True
+            if 'download_url' in content and '"success": true' in content:
+                return True
+    return False
+
+
+# ── Router 节点 ──
+def router(state: MultiAgentState) -> dict:
+    """路由节点：根据对话状态决定下一个执行的 Agent。
+    
+    策略：
+    - 知识未提取 → knowledge_extraction
+    - 知识已提取、未填充 → filling
+    - 已填充、未生成 → generation
+    - 全部完成 → END
+    """
+    messages = state.get("messages", [])
+
+    # 检查各阶段完成状态
+    knowledge_done = _has_facts(messages)
+    filling_done = _has_fields_filled(messages)
+    generation_done = _has_generation_done(messages)
+
+    # 决策逻辑
+    if not knowledge_done:
+        next_node = "knowledge_extraction"
+    elif not filling_done:
+        next_node = "filling"
+    elif not generation_done:
+        next_node = "generation"
+    else:
+        # 全部完成，检查用户最新消息意图
+        # 如果用户发了新消息（如补充材料），可能需要重新提取
+        last_user_msg_idx = -1
+        for i in range(len(messages) - 1, -1, -1):
+            m = messages[i]
+            if hasattr(m, 'type') and m.type == 'human':
+                last_user_msg_idx = i
+                break
+        
+        # 检查最后一条用户消息是否在生成完成之后
+        if last_user_msg_idx >= 0:
+            # 查找生成完成标记的位置
+            gen_done_idx = -1
+            for i, m in enumerate(messages):
+                if hasattr(m, 'content') and isinstance(m.content, str) and '[生成完成]' in m.content:
+                    gen_done_idx = i
+                    break
+            
+            # 如果用户消息在生成完成之后，说明是新请求
+            if gen_done_idx >= 0 and last_user_msg_idx > gen_done_idx:
+                # 新请求：检查是否包含新材料
+                last_msg = messages[last_user_msg_idx]
+                content = last_msg.content if hasattr(last_msg, 'content') else ""
+                # 如果包含文件/材料关键词，重新走知识提取
+                if any(kw in content for kw in ['文件', '知识', '材料', '报告', '上传', '.txt', '.docx']):
+                    return {"messages": []}  # 不修改状态，路由到知识提取
+                # 否则直接到生成（用户可能想重新生成或修改）
+                return {"messages": []}
+        
+        next_node = "__end__"
+
+    return {"messages": []}
+
+
+def route_from_router(state: MultiAgentState) -> str:
+    """从 router 出发的条件边"""
+    messages = state.get("messages", [])
+
+    knowledge_done = _has_facts(messages)
+    filling_done = _has_fields_filled(messages)
+    generation_done = _has_generation_done(messages)
+
+    if not knowledge_done:
+        return "knowledge_extraction"
+    elif not filling_done:
+        return "filling"
+    elif not generation_done:
+        return "generation"
+    else:
+        # 检查是否有新的用户消息（生成后的追加请求）
+        last_user_msg_idx = -1
+        for i in range(len(messages) - 1, -1, -1):
+            m = messages[i]
+            if hasattr(m, 'type') and m.type == 'human':
+                last_user_msg_idx = i
+                break
+        
+        gen_done_idx = -1
+        for i, m in enumerate(messages):
+            if hasattr(m, 'content') and isinstance(m.content, str) and '[生成完成]' in m.content:
+                gen_done_idx = i
+        
+        if gen_done_idx >= 0 and last_user_msg_idx > gen_done_idx:
+            # 新请求：根据内容决定路由
+            last_msg = messages[last_user_msg_idx]
+            content = last_msg.content if hasattr(last_msg, 'content') else ""
+            if any(kw in content for kw in ['生成', '导出', '下载', '输出']):
+                return "generation"
+            elif any(kw in content for kw in ['修改', '更新', '改一下', '调整']):
+                return "filling"
+            else:
+                return "filling"  # 默认回填充阶段处理后续交互
+        
+        return "__end__"
+
+
+def route_after_knowledge(state: MultiAgentState) -> str:
+    """知识提取完成后的路由"""
+    return "filling"
+
+
+def route_after_filling(state: MultiAgentState) -> str:
+    """填充完成后的路由"""
+    messages = state.get("messages", [])
+    if _has_generation_done(messages):
+        return "__end__"
+    return "generation"
+
+
 # ── 图构建 ──
 def build_agent(ctx=None) -> CompiledStateGraph:
-    """构建多Agent协作图（知识提取→填充→生成）"""
+    """构建多Agent协作图（Router + 条件路由）"""
     llm = _build_llm()
     tools = _load_tools()
-    middleware = [ToolErrorHandler(), SanitizeBeforeLLM()]
     checkpointer = get_memory_saver()
 
     cfg_path = os.path.join(_project_root, "config", "agent_llm_config.json")
@@ -202,15 +370,51 @@ def build_agent(ctx=None) -> CompiledStateGraph:
         name="generation",
     )
 
-    # ── 构建 StateGraph 流水线 ──
+    # ── 构建 StateGraph（Router + 条件路由）──
     builder = StateGraph(MultiAgentState)
+
+    # 添加节点
+    builder.add_node("router", router)
     builder.add_node("knowledge_extraction", knowledge_agent)
     builder.add_node("filling", filling_agent)
     builder.add_node("generation", generation_agent)
 
-    builder.add_edge(START, "knowledge_extraction")
-    builder.add_edge("knowledge_extraction", "filling")
-    builder.add_edge("filling", "generation")
+    # START → router
+    builder.add_edge(START, "router")
+
+    # router → 条件路由到各 Agent 或 END
+    builder.add_conditional_edges(
+        "router",
+        route_from_router,
+        {
+            "knowledge_extraction": "knowledge_extraction",
+            "filling": "filling",
+            "generation": "generation",
+            "__end__": END,
+        },
+    )
+
+    # 知识提取 → 填充（总是继续到填充阶段）
+    builder.add_conditional_edges(
+        "knowledge_extraction",
+        route_after_knowledge,
+        {
+            "filling": "filling",
+            "__end__": END,
+        },
+    )
+
+    # 填充 → 生成 或 END
+    builder.add_conditional_edges(
+        "filling",
+        route_after_filling,
+        {
+            "generation": "generation",
+            "__end__": END,
+        },
+    )
+
+    # 生成 → END
     builder.add_edge("generation", END)
 
     return builder.compile(checkpointer=checkpointer)

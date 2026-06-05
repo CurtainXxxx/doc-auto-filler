@@ -91,7 +91,7 @@ projects/                     # 技术项目根目录
 ## 多 Agent 架构详情
 
 ```
-START → knowledge_extraction（知识提取Agent）→ filling（填充Agent）→ generation（生成Agent）→ END
+START → Router → (条件路由) → knowledge_extraction / filling / generation → END
 ```
 
 | Agent | 工具数 | 核心职责 |
@@ -100,7 +100,7 @@ START → knowledge_extraction（知识提取Agent）→ filling（填充Agent�
 | 填充 Agent | 8 | 模板分析、表单初始化、字段更新、AI预填、状态查询 |
 | 生成 Agent | 4 | 表单文档生成、内置模板生成、上传模板生成、模板分析 |
 
-每个 Agent 输出带标签（`[知识提取Agent]`/`[填充Agent]`/`[生成Agent]`），评审可直观看到多 Agent 协作过程。
+**Router 机制**：根据对话中是否已有 `[FACTS]`/`[FIELDS]`/`[生成完成]` 标记，跳过已完成的阶段，只调用需要的 Agent。每个 Agent 的 system_prompt 包含阶段完成标记指令（`[知识提取完成]`/`[填充完成]`/`[生成完成]`）。
 
 ### 测试结果（2026-06-05）
 
@@ -111,6 +111,8 @@ START → knowledge_extraction（知识提取Agent）→ filling（填充Agent�
 | 知识提取 Agent | ✅ | 提取 15 条事实（申报人、教材、项目描述等） |
 | 填充 Agent | ✅ | 识别 29 字段，14 条自动匹配（48.3%），剩余由 AI 合理补全 |
 | 生成 Agent | ✅ | 100% 填写率，7 项校验全通过，生成 docx 并上传对象存储 |
+
+考场记录表 + 试卷分析模板也通过测试（100% / 97.5% 填写率）。
 
 ## 用户偏好与长期约束
 
