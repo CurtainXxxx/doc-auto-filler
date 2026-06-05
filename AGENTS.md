@@ -35,7 +35,10 @@ projects/                     # 技术项目根目录
 ├── web/
 │   └── index.html            # 前端 SPA（单文件，~99KB）
 ├── pyproject.toml            # 项目配置 + 依赖声明
-└── requirements.txt          # 冻结依赖清单
+├── requirements.txt          # 冻结依赖清单
+├── MIGRATION_GUIDE.md        # 迁移指南（给新 AI 助手）
+├── local_debug.py            # 本地命令行调试入口
+└── test_simple.py            # 简单测试脚本
 ```
 
 ## 关键入口 / 核心模块
@@ -67,6 +70,17 @@ projects/                     # 技术项目根目录
 2. **无用系统依赖已移除**：`pycairo==1.29.0`、`dbus-python==1.3.2`、`PyGObject==3.48.2` 在源码中未被引用，已从 `pyproject.toml` 和 `requirements.txt` 中移除。
 3. **前端挂载**：`main.py` 中前端静态文件通过双路径候选挂载（优先项目根下的 `web/`，回退到 `COZE_WORKSPACE_PATH/web`）。
 4. **预览脚本已更新 lock 文件**：`coze-preview-build.sh` 使用 `uv sync`（非 `--frozen`）以允许 lock 文件更新。
+
+## 源码仓库
+
+- **GitHub**：`https://github.com/CurtainXxxx/doc-auto-fillter`
+- **当前分支**：`feature/v2-fill-enhance-v2`
+- **最新提交**：`90259b7` — fix: 打印CSS补全
+
+## 下一步开发计划
+
+1. **多 Agent 架构**（`MIGRATION_GUIDE.md` 第五章）：当前单 Agent（16 工具），需改造为 3 节点流水线（知识提取 → 填充 → 生成）
+2. **通用模板引擎重构**（`docs/refactor_plan.md`）：field_id 为主、label 为兼容、事实提取分离、生成后校验
 
 ## 用户偏好与长期约束
 
