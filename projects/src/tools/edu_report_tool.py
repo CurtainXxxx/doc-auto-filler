@@ -1818,11 +1818,14 @@ def analyze_uploaded_template(file_path: str) -> str:
     
     try:
         import os
-        workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
-        if not os.path.isabs(file_path):
-            full_path = os.path.join(workspace, file_path)
-        else:
-            full_path = file_path
+        try:
+            full_path = _resolve_template_path(file_path)
+        except ValueError:
+            workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
+            if not os.path.isabs(file_path):
+                full_path = os.path.join(workspace, file_path)
+            else:
+                full_path = file_path
         
         if not os.path.exists(full_path):
             return json.dumps({"success": False, "message": f"文件不存在: {file_path}"}, ensure_ascii=False)
@@ -1892,11 +1895,15 @@ def generate_from_template(file_path: str, report_data: str) -> str:
     
     try:
         import os
-        workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
-        if not os.path.isabs(file_path):
-            full_path = os.path.join(workspace, file_path)
-        else:
-            full_path = file_path
+        try:
+            full_path = _resolve_template_path(file_path)
+        except ValueError:
+            # fallback: 直接路径检查
+            workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
+            if not os.path.isabs(file_path):
+                full_path = os.path.join(workspace, file_path)
+            else:
+                full_path = file_path
         
         if not os.path.exists(full_path):
             return json.dumps({"success": False, "message": f"文件不存在: {file_path}"}, ensure_ascii=False)

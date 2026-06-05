@@ -73,6 +73,9 @@ projects/                     # 技术项目根目录
 2. **无用系统依赖已移除**：`pycairo==1.29.0`、`dbus-python==1.3.2`、`PyGObject==3.48.2` 在源码中未被引用，已从 `pyproject.toml` 和 `requirements.txt` 中移除。
 3. **前端挂载**：`main.py` 中前端静态文件通过双路径候选挂载（优先项目根下的 `web/`，回退到 `COZE_WORKSPACE_PATH/web`）。
 4. **预览脚本已更新 lock 文件**：`coze-preview-build.sh` 使用 `uv sync`（非 `--frozen`）以允许 lock 文件更新。
+5. **模板路径解析**：`edu_report_tool.py` 中 `generate_from_template` 和 `analyze_uploaded_template` 已修复为使用 `_resolve_template_path`，支持从 `assets/` 子目录查找模板文件。
+6. **MultiAgentState**：`agent.py` 中 `MultiAgentState` 需包含 `remaining_steps` 字段以满足 LangGraph 1.0 的 `create_react_agent` 要求。
+7. **Agent 中间件**：使用 `AgentMiddleware` 子类时需同时实现 `wrap_tool_call`（同步）和 `awrap_tool_call`（异步）方法。
 
 ## 源码仓库
 
@@ -98,6 +101,16 @@ START → knowledge_extraction（知识提取Agent）→ filling（填充Agent�
 | 生成 Agent | 4 | 表单文档生成、内置模板生成、上传模板生成、模板分析 |
 
 每个 Agent 输出带标签（`[知识提取Agent]`/`[填充Agent]`/`[生成Agent]`），评审可直观看到多 Agent 协作过程。
+
+### 测试结果（2026-06-05）
+
+使用 `教材建设申报_【简单】.txt` 知识文件 + `教材建设申报书.docx` 模板完整测试通过：
+
+| 阶段 | 状态 | 详情 |
+|------|------|------|
+| 知识提取 Agent | ✅ | 提取 15 条事实（申报人、教材、项目描述等） |
+| 填充 Agent | ✅ | 识别 29 字段，14 条自动匹配（48.3%），剩余由 AI 合理补全 |
+| 生成 Agent | ✅ | 100% 填写率，7 项校验全通过，生成 docx 并上传对象存储 |
 
 ## 用户偏好与长期约束
 

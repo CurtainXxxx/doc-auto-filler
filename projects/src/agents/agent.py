@@ -12,208 +12,194 @@ import json
 from typing import Annotated
 from dotenv import load_dotenv
 
-_workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
-load_dotenv(os.path.join(_workspace, ".env"), override=True)
+_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_env_path = os.path.join(_project_root, ".env")
+if not os.path.isfile(_env_path):
+    _env_path = os.path.join(os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"), ".env")
+load_dotenv(_env_path, override=True)
 
-from langchain.agents import create_agent
-from langchain.agents.middleware import wrap_tool_call
+from langchain.agents.middleware import AgentMiddleware
 from langchain.messages import ToolMessage, AIMessage
 from langchain_openai import ChatOpenAI
+from langgraph.prebuilt import create_react_agent
 from langgraph.graph import StateGraph, START, END, MessagesState
 from langgraph.graph.message import add_messages
 from langgraph.graph.state import CompiledStateGraph
 from langchain_core.messages import AnyMessage
 from coze_coding_utils.runtime_ctx.context import default_headers
 from storage.memory.memory_saver import get_memory_saver
-from tools.edu_report_tool import (
-    generate_edu_report, analyze_report_template, list_templates,
-    analyze_uploaded_template, generate_from_template,
-    init_form_filling, get_form_status, update_form_fields, generate_form_document,
-)
-from tools.knowledge_tool import parse_knowledge_file, extract_facts
-from tools.prefill_tool import prefill_from_knowledge, prefill_from_multiple_knowledge
-from tools.old_report_extractor import (
-    extract_from_old_report, prefill_from_old_report, get_fill_checklist,
-    inject_form_states as _inject_form_states,
-)
-from tools.edu_report_tool import _active_form_states
-
-LLM_CONFIG = "config/agent_llm_config.json"
-MAX_MESSAGES = 40
 
 
-def _strip_reasoning(msg):
-    """清理 DeepSeek 等模型返回的 reasoning_content，防止多轮对话报错"""
-    if not isinstance(msg, AIMessage):
-        return msg
-    rc = getattr(msg, "reasoning_content", None)
-    if not rc:
-        return msg
-    try:
-        delattr(msg, "reasoning_content")
-    except Exception:
-        pass
-    if hasattr(msg, "additional_kwargs") and "reasoning_content" in msg.additional_kwargs:
-        msg.additional_kwargs.pop("reasoning_content", None)
-    return msg
-
-
-def _windowed_messages(old, new):
-    """滑动窗口: 只保留最近 MAX_MESSAGES 条消息，并清理 reasoning_content"""
-    merged = add_messages(old, new)[-MAX_MESSAGES:]
-    merged = [_strip_reasoning(m) for m in merged]
-    merged = _fix_orphan_tool_messages(merged)
-    return merged
-
-
-def _fix_orphan_tool_messages(messages):
-    """删除没有对应 AIMessage.tool_calls 的 ToolMessage，防止 API 400 错误"""
-    valid_tool_call_ids = set()
-    for m in messages:
-        if isinstance(m, AIMessage) and hasattr(m, "tool_calls") and m.tool_calls:
-            for tc in m.tool_calls:
-                if "id" in tc:
-                    valid_tool_call_ids.add(tc["id"])
-    result = []
-    for m in messages:
-        if isinstance(m, ToolMessage):
-            if m.tool_call_id not in valid_tool_call_ids:
-                continue
-        result.append(m)
-    return result
-
-
+# ── State ──
 class MultiAgentState(MessagesState):
-    """多Agent共享状态：消息列表 + 滑动窗口"""
-    messages: Annotated[list[AnyMessage], _windowed_messages]
+    """多Agent共享状态，继承MessagesState的消息累积机制"""
+    remaining_steps: int = 0
 
 
-@wrap_tool_call
-def handle_tool_errors(request, handler):
-    """工具执行错误处理——所有Agent共用"""
-    try:
-        return handler(request)
-    except Exception as e:
-        return ToolMessage(
-            content=f"工具执行出错: ({str(e)})",
-            tool_call_id=request.tool_call["id"]
+# ── Middleware ──
+class ToolErrorHandler(AgentMiddleware):
+    """工具调用错误处理：捕获异常并返回友好错误消息"""
+
+    def wrap_tool_call(self, request, handler):
+        try:
+            return handler(request)
+        except Exception as e:
+            return ToolMessage(
+                content=f"工具调用出错: {str(e)}",
+                tool_call_id=request.tool_call["id"],
+            )
+
+    async def awrap_tool_call(self, request, handler):
+        try:
+            return await handler(request)
+        except Exception as e:
+            return ToolMessage(
+                content=f"工具调用出错: {str(e)}",
+                tool_call_id=request.tool_call["id"],
+            )
+
+
+class SanitizeBeforeLLM(AgentMiddleware):
+    """在消息进入LLM前清理过长的工具输出，防止token溢出"""
+
+    def before_model(self, state, runtime):
+        msgs = state.get("messages", [])
+        sanitized = []
+        for m in msgs:
+            if hasattr(m, "content") and isinstance(m.content, str) and len(m.content) > 8000:
+                sanitized.append(m.model_copy(update={"content": m.content[:8000] + "\n...(truncated)"}))
+            else:
+                sanitized.append(m)
+        return {"messages": sanitized}
+
+    async def abefore_model(self, state, runtime):
+        return self.before_model(state, runtime)
+
+
+# ── LLM 构建 ──
+def _build_llm():
+    """构建 LLM 实例：优先外部 API，fallback 平台内置模型"""
+    external_key = os.getenv("EXTERNAL_LLM_API_KEY")
+    if external_key:
+        return ChatOpenAI(
+            model=os.getenv("EXTERNAL_LLM_MODEL", "deepseek-chat"),
+            api_key=external_key,
+            base_url=os.getenv("EXTERNAL_LLM_BASE_URL", "https://api.deepseek.com/v1"),
+            temperature=0.3,
+            streaming=True,
         )
 
+    cfg_path = os.path.join(_project_root, "config", "agent_llm_config.json")
+    if not os.path.isfile(cfg_path):
+        cfg_path = os.path.join(os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"), "config", "agent_llm_config.json")
+    with open(cfg_path, "r", encoding="utf-8") as f:
+        cfg = json.load(f)
 
-@wrap_tool_call
-def sanitize_before_llm(request, handler):
-    """发送给LLM前清理孤立ToolMessage——所有Agent共用"""
-    if hasattr(request, 'messages') and request.messages:
-        valid_ids = set()
-        for m in request.messages:
-            for tc in (getattr(m, "tool_calls", None) or []):
-                valid_ids.add(tc.get("id"))
-        request.messages = [
-            m for m in request.messages
-            if getattr(m, "type", "") != "tool"
-            or (getattr(m, "tool_call_id", None) in valid_ids)
-        ]
-    return handler(request)
-
-
-def _build_llm(cfg, ctx=None):
-    """构建 LLM 实例（支持外部API和平台内置模型）"""
-    ext_api_key = os.getenv("EXTERNAL_LLM_API_KEY")
-    ext_base_url = os.getenv("EXTERNAL_LLM_BASE_URL")
-
-    if ext_api_key and ext_base_url:
-        api_key = ext_api_key
-        base_url = ext_base_url
-        model = os.getenv("EXTERNAL_LLM_MODEL", "deepseek-chat")
-    else:
-        api_key = os.getenv("COZE_WORKLOAD_IDENTITY_API_KEY")
-        base_url = os.getenv("COZE_INTEGRATION_MODEL_BASE_URL")
-        model = cfg["config"].get("model", "doubao-seed-1-6-251015")
-
+    model_name = cfg.get("model", "doubao-seed-1-6-251015")
     return ChatOpenAI(
-        model=model,
-        api_key=api_key,
-        base_url=base_url,
-        temperature=cfg["config"].get("temperature", 0.7),
+        model=model_name,
+        api_key=os.getenv("ARK_API_KEY", os.getenv("OPENAI_API_KEY", "")),
+        base_url=os.getenv("ARK_BASE_URL", os.getenv("OPENAI_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")),
+        temperature=0.3,
         streaming=True,
-        timeout=cfg["config"].get("timeout", 600),
-        extra_body=(
-            {"thinking": {"type": "disabled"}} if ext_api_key else {
-                "thinking": {
-                    "type": cfg["config"].get("thinking", "disabled")
-                }
-            }
-        ),
-        default_headers=default_headers(ctx) if ctx and not ext_api_key else {},
+        default_headers=default_headers() or {},
     )
 
 
+# ── 工具导入 ──
+def _load_tools():
+    """延迟导入所有工具，避免循环依赖"""
+    from tools.edu_report_tool import (
+        list_templates, analyze_report_template, analyze_uploaded_template,
+        init_form_filling, update_form_fields, get_form_status,
+        generate_form_document, generate_edu_report, generate_from_template,
+    )
+    from tools.knowledge_tool import parse_knowledge_file, extract_facts
+    from tools.old_report_extractor import extract_from_old_report, prefill_from_old_report, get_fill_checklist
+    from tools.prefill_tool import prefill_from_knowledge, prefill_from_multiple_knowledge
+
+    return {
+        # 知识提取
+        "extract_from_old_report": extract_from_old_report,
+        "parse_knowledge_file": parse_knowledge_file,
+        "extract_facts": extract_facts,
+        "prefill_from_old_report": prefill_from_old_report,
+        "get_fill_checklist": get_fill_checklist,
+        # 填充
+        "list_templates": list_templates,
+        "analyze_report_template": analyze_report_template,
+        "analyze_uploaded_template": analyze_uploaded_template,
+        "init_form_filling": init_form_filling,
+        "update_form_fields": update_form_fields,
+        "get_form_status": get_form_status,
+        "prefill_from_knowledge": prefill_from_knowledge,
+        "prefill_from_multiple_knowledge": prefill_from_multiple_knowledge,
+        # 生成
+        "generate_form_document": generate_form_document,
+        "generate_edu_report": generate_edu_report,
+        "generate_from_template": generate_from_template,
+    }
+
+
+# ── 图构建 ──
 def build_agent(ctx=None) -> CompiledStateGraph:
-    """构建多Agent协作系统
+    """构建多Agent协作图（知识提取→填充→生成）"""
+    llm = _build_llm()
+    tools = _load_tools()
+    middleware = [ToolErrorHandler(), SanitizeBeforeLLM()]
+    checkpointer = get_memory_saver()
 
-    流水线架构（StateGraph 3节点）:
-      START → knowledge_extraction（知识提取Agent）
-           → filling（填充Agent）
-           → generation（生成Agent）
-           → END
-
-    每个Agent是独立的 create_agent，配不同的 system_prompt 和工具集。
-    固定顺序连接，不需要 Supervisor 路由。
-    """
-    workspace_path = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
-    config_path = os.path.join(workspace_path, LLM_CONFIG)
-
-    with open(config_path, "r", encoding="utf-8") as f:
+    cfg_path = os.path.join(_project_root, "config", "agent_llm_config.json")
+    if not os.path.isfile(cfg_path):
+        cfg_path = os.path.join(os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"), "config", "agent_llm_config.json")
+    with open(cfg_path, "r", encoding="utf-8") as f:
         cfg = json.load(f)
 
-    llm = _build_llm(cfg, ctx)
-    checkpointer = get_memory_saver()
-    middleware = [handle_tool_errors, sanitize_before_llm]
-
-    # 注入共享状态，让 old_report_extractor 能访问 edu_report_tool 的会话
-    _inject_form_states(_active_form_states)
-
     # ── 知识提取 Agent ──
-    # 职责：从用户上传的材料中提取结构化事实
-    # 工具：旧报告提取、知识文件解析、事实提取、数据准备清单
-    knowledge_agent = create_agent(
+    knowledge_agent = create_react_agent(
         model=llm,
-        system_prompt=cfg.get("knowledge_sp", cfg.get("sp", "")),
         tools=[
-            extract_from_old_report, parse_knowledge_file, extract_facts,
-            prefill_from_old_report, get_fill_checklist,
+            tools["extract_from_old_report"],
+            tools["parse_knowledge_file"],
+            tools["extract_facts"],
+            tools["prefill_from_old_report"],
+            tools["get_fill_checklist"],
         ],
+        prompt=cfg.get("knowledge_sp", cfg.get("sp", "")),
         state_schema=MultiAgentState,
-        middleware=middleware,
+        name="knowledge_extraction",
     )
 
     # ── 填充 Agent ──
-    # 职责：将事实表匹配到模板字段，批量填入，回显驱动前端预览
-    # 工具：模板分析、表单初始化、字段更新、AI预填、状态查询
-    filling_agent = create_agent(
+    filling_agent = create_react_agent(
         model=llm,
-        system_prompt=cfg.get("filling_sp", cfg.get("sp", "")),
         tools=[
-            list_templates, analyze_report_template, analyze_uploaded_template,
-            init_form_filling, update_form_fields, get_form_status,
-            prefill_from_knowledge, prefill_from_multiple_knowledge,
+            tools["list_templates"],
+            tools["analyze_report_template"],
+            tools["analyze_uploaded_template"],
+            tools["init_form_filling"],
+            tools["update_form_fields"],
+            tools["get_form_status"],
+            tools["prefill_from_knowledge"],
+            tools["prefill_from_multiple_knowledge"],
         ],
+        prompt=cfg.get("filling_sp", cfg.get("sp", "")),
         state_schema=MultiAgentState,
-        middleware=middleware,
+        name="filling",
     )
 
     # ── 生成 Agent ──
-    # 职责：用户确认后生成最终 docx 文档，返回下载链接
-    # 工具：表单文档生成、内置模板生成、上传模板生成、模板分析
-    generation_agent = create_agent(
+    generation_agent = create_react_agent(
         model=llm,
-        system_prompt=cfg.get("generation_sp", cfg.get("sp", "")),
         tools=[
-            generate_form_document, generate_edu_report, generate_from_template,
-            analyze_report_template,
+            tools["generate_form_document"],
+            tools["generate_edu_report"],
+            tools["generate_from_template"],
+            tools["analyze_report_template"],
         ],
+        prompt=cfg.get("generation_sp", cfg.get("sp", "")),
         state_schema=MultiAgentState,
-        middleware=middleware,
+        name="generation",
     )
 
     # ── 构建 StateGraph 流水线 ──

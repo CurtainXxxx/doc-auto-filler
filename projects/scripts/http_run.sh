@@ -29,6 +29,7 @@ while getopts "p:h" opt; do
 done
 
 export PORT
+export COZE_PROJECT_TYPE=agent
 
 # 激活 .venv（devbox 环境），deploy 无 .venv 则跳过
 if [ -f "${PROJECT_DIR}/.venv/bin/activate" ]; then
