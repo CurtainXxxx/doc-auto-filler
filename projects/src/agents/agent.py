@@ -33,8 +33,12 @@ from storage.memory.memory_saver import get_memory_saver
 
 
 # ── State ──
+MAX_MESSAGES = 40
+
+
 class MultiAgentState(MessagesState):
-    """多Agent共享状态，继承MessagesState的消息累积机制"""
+    """多Agent共享状态，滑动窗口限制消息数防止token爆炸"""
+    messages: Annotated[list[AnyMessage], lambda old, new: add_messages(old, new)[-MAX_MESSAGES:]]
     remaining_steps: int = 0
 
 
@@ -279,8 +283,10 @@ def route_from_router(state: MultiAgentState) -> str:
 
 
 def route_after_knowledge(state: MultiAgentState) -> str:
-    """知识提取完成后的路由"""
-    return "filling"
+    """知识提取完成后的路由：有事实数据才进填充，否则结束等用户补充"""
+    if _has_facts(state.get("messages", [])):
+        return "filling"
+    return "__end__"
 
 
 def route_after_filling(state: MultiAgentState) -> str:
