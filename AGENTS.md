@@ -1,6 +1,8 @@
 ## 项目概述
 
-**智能教务文档填写系统** — 基于 LLM + LangGraph 的对话式 Word 文档自动填写系统。用户上传教务模板，通过对话或上传知识文件即可自动填充字段，保留原始格式并生成可下载的 docx 文件。
+**智能教务文档填写系统** — 基于 LLM + LangGraph 的多 Agent 协作式 Word 文档自动填写系统。用户上传教务模板，通过对话或上传知识文件即可自动填充字段，保留原始格式并生成可下载的 docx 文件。
+
+**当前架构**：StateGraph 3 节点流水线（知识提取 Agent → 填充 Agent → 生成 Agent），每个 Agent 独立配置 system_prompt 和工具集，输出带标签（`[知识提取Agent]`/`[填充Agent]`/`[生成Agent]`）。
 
 ## 技术栈
 
@@ -28,7 +30,7 @@ projects/                     # 技术项目根目录
 ├── assets/                   # 模板文件 + 静态资源
 ├── src/
 │   ├── main.py               # Web 服务入口（FastAPI）
-│   ├── agents/agent.py       # Agent 主逻辑（LangGraph 状态机）
+│   ├── agents/agent.py       # Agent 主逻辑（StateGraph 3 节点流水线）
 │   ├── tools/                # 工具模块（模板解析、文档生成、校验等）
 │   ├── storage/              # 存储层（记忆持久化）
 │   └── utils/                # 工具函数
@@ -44,7 +46,8 @@ projects/                     # 技术项目根目录
 ## 关键入口 / 核心模块
 
 - **服务入口**：`src/main.py`，通过 `python src/main.py -m http -p <port>` 启动
-- **Agent 逻辑**：`src/agents/agent.py`，LangGraph 状态机
+- **Agent 逻辑**：`src/agents/agent.py`，LangGraph StateGraph 3 节点流水线（知识提取→填充→生成）
+- **Agent 配置**：`config/agent_llm_config.json`，含 `knowledge_sp`/`filling_sp`/`generation_sp` 三个独立 system_prompt
 - **模板解析引擎**：`src/tools/template_analyzer.py`
 - **文档生成引擎**：`src/tools/edu_report_tool.py`
 - **API 接口**：`/run`（同步）、`/stream_run`（SSE 流式）、`/upload`、`/prefill`、`/template-preview`、`/download-docx` 等
@@ -79,8 +82,22 @@ projects/                     # 技术项目根目录
 
 ## 下一步开发计划
 
-1. **多 Agent 架构**（`MIGRATION_GUIDE.md` 第五章）：当前单 Agent（16 工具），需改造为 3 节点流水线（知识提取 → 填充 → 生成）
+1. ~~**多 Agent 架构**~~ ✅ 已完成：StateGraph 3 节点流水线（知识提取 → 填充 → 生成），见 `src/agents/agent.py`
 2. **通用模板引擎重构**（`docs/refactor_plan.md`）：field_id 为主、label 为兼容、事实提取分离、生成后校验
+
+## 多 Agent 架构详情
+
+```
+START → knowledge_extraction（知识提取Agent）→ filling（填充Agent）→ generation（生成Agent）→ END
+```
+
+| Agent | 工具数 | 核心职责 |
+|---|---|---|
+| 知识提取 Agent | 5 | 旧报告提取、知识文件解析、事实提取、预填、数据准备清单 |
+| 填充 Agent | 8 | 模板分析、表单初始化、字段更新、AI预填、状态查询 |
+| 生成 Agent | 4 | 表单文档生成、内置模板生成、上传模板生成、模板分析 |
+
+每个 Agent 输出带标签（`[知识提取Agent]`/`[填充Agent]`/`[生成Agent]`），评审可直观看到多 Agent 协作过程。
 
 ## 用户偏好与长期约束
 
