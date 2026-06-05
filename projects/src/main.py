@@ -7,6 +7,13 @@ import threading
 import traceback
 import logging
 
+# 加载 .env 环境变量（必须在其他导入之前，确保 EXTERNAL_LLM_API_KEY 等可用）
+from dotenv import load_dotenv
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_dotenv_path = os.path.join(_project_root, ".env")
+if os.path.isfile(_dotenv_path):
+    load_dotenv(_dotenv_path)
+
 # 确保 src/ 在 sys.path 中，让 coze_coding_utils 内部的 from utils.helper import graph_helper 能找到
 _src_dir = os.path.dirname(os.path.abspath(__file__))
 if _src_dir not in sys.path:
