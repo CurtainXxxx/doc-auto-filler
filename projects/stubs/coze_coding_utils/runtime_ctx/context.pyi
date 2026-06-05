@@ -1,9 +1,0 @@
-"""Stub: coze_coding_utils.runtime_ctx.context"""
-from typing import Any, Optional
-
-class Context:
-    method: str
-    ...
-
-def default_headers(ctx: Optional[Any] = None) -> dict: ...
-def new_context(method: str = "") -> Context: ...
