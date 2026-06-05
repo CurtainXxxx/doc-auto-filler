@@ -64,6 +64,7 @@ def _build_llm(ctx=None):
             api_key=external_key,
             base_url=os.getenv("EXTERNAL_LLM_BASE_URL", "https://api.deepseek.com/v1"),
             temperature=0.3,
+            max_tokens=4096,
             streaming=True,
             timeout=600,
         )
@@ -89,6 +90,7 @@ def _build_llm(ctx=None):
         api_key=os.getenv("ARK_API_KEY", os.getenv("OPENAI_API_KEY", "")),
         base_url=os.getenv("ARK_BASE_URL", os.getenv("OPENAI_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")),
         temperature=temperature,
+        max_tokens=4096,
         streaming=True,
         timeout=timeout,
         default_headers=headers,
