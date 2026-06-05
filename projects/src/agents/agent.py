@@ -38,7 +38,7 @@ MAX_MESSAGES = 40
 class MultiAgentState(MessagesState):
     """多Agent共享状态，滑动窗口限制消息数防止token爆炸"""
     messages: Annotated[list[AnyMessage], lambda old, new: add_messages(old, new)[-MAX_MESSAGES:]]
-    remaining_steps: int = 3
+    remaining_steps: int = 0
 
 
 # ── 消息清理 Hook（替代 AgentMiddleware，create_react_agent 不支持 middleware 参数）──
