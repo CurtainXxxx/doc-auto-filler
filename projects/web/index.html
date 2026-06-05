@@ -1236,7 +1236,7 @@ function createStreamingMessage() {
     const elapsed = Date.now() - lastContentTime;
     if (elapsed > 15000 && !fullText) {
       const hint = toolCallCount > 0
-        ? `Agent 正在调用工具处理中（已调用 ${toolCallCount} 次）...`
+        ? `Agent 正在调用工具处理中（已调用 ${toolCallCount} 次），预计还需 30-60 秒...`
         : 'Agent 正在思考中，请稍候...';
       bubble.innerHTML = `<span style="color:#888;font-style:italic;">${hint}</span>`;
       document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
@@ -1245,6 +1245,17 @@ function createStreamingMessage() {
 
   let fullText = '';
   let streamDone = false;
+
+  // 硬超时：120秒后自动中断（Coze 预览代理约 60 秒断连）
+  const controller = new AbortController();
+  const HARD_TIMEOUT_MS = 120000;
+  const hardTimeoutId = setTimeout(() => {
+    controller.abort();
+    bubble.innerHTML = `<span style="color:var(--danger);">请求超时（${HARD_TIMEOUT_MS/1000}秒），Agent 处理时间过长。<br>请<a href="javascript:void(0)" onclick="this.closest('.message').querySelector('.retry-btn')?.click()" style="color:var(--primary);text-decoration:underline;">重试</a>，或简化输入内容。</span>`;
+    addRetryButton(msgDiv, '请求超时');
+    showThinkingIndicator(false);
+    clearInterval(statusTimer);
+  }, HARD_TIMEOUT_MS);
 
   try {
     const resp = await fetch(API_URL, {
@@ -1256,6 +1267,7 @@ function createStreamingMessage() {
         stream: true,
         session_id: sessionId,
       }),
+      signal: controller.signal,
     });
 
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -1346,11 +1358,16 @@ function createStreamingMessage() {
     detectAndUpdateFields(fullText);
     postProcessResponse(fullText);
     showThinkingIndicator(false);
+    clearTimeout(hardTimeoutId);
 
   } catch (err) {
-    bubble.innerHTML = `<span style="color:var(--danger);">请求失败: ${escapeHtml(err.message)}</span>`;
-    addRetryButton(msgDiv, err.message);
-    showThinkingIndicator(false);
+    // AbortController 超时已经设了UI，不重复覆盖
+    if (err.name !== 'AbortError') {
+      bubble.innerHTML = `<span style="color:var(--danger);">请求失败: ${escapeHtml(err.message)}</span>`;
+      addRetryButton(msgDiv, err.message);
+      showThinkingIndicator(false);
+    }
+    clearTimeout(hardTimeoutId);
   } finally {
     clearInterval(statusTimer);
     isStreaming = false;
