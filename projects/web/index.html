@@ -1227,6 +1227,8 @@ function createStreamingMessage() {
   const msgDiv = createStreamingMessage();
   const bubble = msgDiv.querySelector('.bubble');
 
+  showThinkingIndicator(true);
+
   try {
     const resp = await fetch(API_URL, {
       method: 'POST',
@@ -1322,9 +1324,12 @@ function createStreamingMessage() {
     // 流结束后最终检测
     detectAndUpdateFields(fullText);
     postProcessResponse(fullText);
+    showThinkingIndicator(false);
 
   } catch (err) {
     bubble.innerHTML = `<span style="color:var(--danger);">请求失败: ${escapeHtml(err.message)}</span>`;
+    addRetryButton(msgDiv, err.message);
+    showThinkingIndicator(false);
   } finally {
     isStreaming = false;
     document.getElementById('sendBtn').disabled = false;
