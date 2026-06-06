@@ -183,10 +183,10 @@ def _llm_extract_fields(field_list: list, file_content: str, ctx=None) -> dict:
 文件内容：
 {file_content}
 
-请返回JSON格式，例如：
-{{"课程名称": "高等数学", "学时数": "64", "教师姓名": "张明"}}
+请返回JSON格式，只返回JSON对象，不要Markdown代码块，不要其他文字。
 
-只返回JSON，不要其他文字。"""
+示例格式（仅表示结构，值来自文件内容）：
+{{"课程名称": "（从文件提取的值）", "学时数": "（从文件提取的值）", "教师姓名": "（从文件提取的值）"}}"""
 
     try:
         # 支持外部模型API（如 DeepSeek）
@@ -506,10 +506,10 @@ def extract_facts(file_description: str, file_content: str) -> str:
 文件内容：
 {content}
 
-请返回JSON格式，例如：
-{{"课程名称": "高等数学", "学时数": "64", "教师姓名": "张明", "课程总结": "本课程...", "平均分": "72.5"}}
+请返回JSON格式，只返回JSON对象，不要Markdown代码块，不要其他文字。
 
-只返回JSON，不要其他文字。"""
+示例格式（仅表示结构，值来自文件内容）：
+{{"课程名称": "（从文件提取的值）", "学时数": "（从文件提取的值）", "教师姓名": "（从文件提取的值）"}}"""
 
     try:
         ext_api_key = os.getenv("EXTERNAL_LLM_API_KEY")
