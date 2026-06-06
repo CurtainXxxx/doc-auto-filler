@@ -196,6 +196,7 @@ class GraphService:
         graph = self._get_graph(ctx)
         if graph_helper.is_agent_proj():
             run_config = init_agent_config(graph, ctx)
+            run_config["recursion_limit"] = 8  # 防止 Agent 无限循环
         else:
             run_config = init_run_config(graph, ctx)  # vibeflow
 
