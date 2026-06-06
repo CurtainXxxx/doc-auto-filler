@@ -1249,7 +1249,7 @@ function createStreamingMessage() {
   }
 
   // 静默检测：每 5 秒检查，30 秒无新数据 → 判定代理断开
-  const SILENCE_MS = 30000;
+  const SILENCE_MS = 90000;
   const silenceTimer = setInterval(() => {
     if (aborted || streamDone) return;
     const elapsed = Date.now() - lastDataTime;
