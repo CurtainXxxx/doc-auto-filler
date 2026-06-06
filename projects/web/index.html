@@ -1079,11 +1079,8 @@ html, body {
 
 <script>
 // ── State ──
-let sessionId = localStorage.getItem('doc_session_id');
-if (!sessionId) {
-  sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
-  localStorage.setItem('doc_session_id', sessionId);
-}
+// 每次页面加载生成新会话 ID，防止旧文件路径泄漏到新对话
+const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
 let isStreaming = false;
 let currentDownloadUrl = '';
 let currentTemplate = '';
