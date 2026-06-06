@@ -119,15 +119,21 @@ class GraphService:
         self._graph_lock = threading.Lock()
 
     def _get_graph(self, ctx=Context):
+        # Agent 项目（COZE_PROJECT_TYPE=agent）通过 build_agent 构建
         if graph_helper.is_agent_proj():
             return graph_helper.get_agent_instance("agents.agent", ctx)
 
+        # workflow 项目通过 graphs.graph 自动发现
         if self._graph is not None:
             return self._graph
         with self._graph_lock:
             if self._graph is not None:
                 return self._graph
-            self._graph = graph_helper.get_graph_instance("graphs.graph")
+            try:
+                self._graph = graph_helper.get_graph_instance("graphs.graph")
+            except ModuleNotFoundError:
+                # 没有 workflow graphs 模块时，回退到 Agent 方式
+                self._graph = graph_helper.get_agent_instance("agents.agent", ctx)
             return self._graph
 
     @staticmethod
