@@ -1251,7 +1251,7 @@ function createStreamingMessage() {
     if (aborted || streamDone) return;
     const elapsed = Date.now() - lastDataTime;
     if (elapsed > SILENCE_MS) {
-      doAbort('连接已断开（30秒无响应），请重试');
+      doAbort(`连接已断开（${SILENCE_MS/1000}秒无响应），请重试`);
       clearInterval(silenceTimer);
     } else if (elapsed > 15000 && !fullText) {
       // 15 秒无内容 → 进度提示

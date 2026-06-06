@@ -548,6 +548,40 @@ async def http_node_run(node_id: str, request: Request):
         cozeloop.flush()
 
 
+async def _sse_with_heartbeat(original: AsyncGenerator[str, None]) -> AsyncGenerator[str, None]:
+    """SSE 流心跳包装：Coze 预览代理 30-60s TCP 空闲断连，每 15s 发心跳保活"""
+    import asyncio
+    queue: asyncio.Queue = asyncio.Queue()
+    sentinel = object()
+
+    async def _reader():
+        try:
+            async for chunk in original:
+                await queue.put(chunk)
+        except Exception:
+            pass
+        finally:
+            await queue.put(sentinel)
+
+    async def _heartbeat():
+        while True:
+            await asyncio.sleep(15)
+            await queue.put(": heartbeat\n\n")
+
+    reader = asyncio.create_task(_reader())
+    hb = asyncio.create_task(_heartbeat())
+
+    try:
+        while True:
+            item = await queue.get()
+            if item is sentinel:
+                break
+            yield item
+    finally:
+        reader.cancel()
+        hb.cancel()
+
+
 @app.post("/v1/chat/completions")
 async def openai_chat_completions(request: Request):
     """OpenAI Chat Completions API 兼容接口"""
@@ -558,7 +592,13 @@ async def openai_chat_completions(request: Request):
 
     try:
         payload = await request.json()
-        return await openai_handler.handle(payload, ctx)
+        response = await openai_handler.handle(payload, ctx)
+        if isinstance(response, StreamingResponse):
+            return StreamingResponse(
+                _sse_with_heartbeat(response.body_iterator),
+                media_type="text/event-stream",
+            )
+        return response
     except json.JSONDecodeError as e:
         logger.error(f"JSON decode error in openai_chat_completions: {e}")
         raise HTTPException(status_code=400, detail="Invalid JSON format")
