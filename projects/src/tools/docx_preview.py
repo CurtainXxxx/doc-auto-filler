@@ -174,6 +174,9 @@ def _render_table(table, t_idx, cell_fields) -> str:
     """渲染一个表格为 HTML，标记可填写单元格"""
     rows_html = []
 
+    # 提取列宽信息
+    colgroup_html = _render_colgroup(table)
+
     for r_idx, row in enumerate(table.rows):
         cells_html = []
         unique_cells = _get_unique_cells(row)
@@ -229,7 +232,7 @@ def _render_table(table, t_idx, cell_fields) -> str:
         if cells_html:
             rows_html.append('<tr>' + ''.join(cells_html) + '</tr>')
 
-    return '<table class="doc-table">' + '\n'.join(rows_html) + '</table>'
+    return '<table class="doc-table">' + colgroup_html + '\n'.join(rows_html) + '</table>'
 
 
 def _render_field_cell(attrs, cell_style, text, fields) -> str:
@@ -353,6 +356,27 @@ def _calc_rowspan(table, r_idx, c_idx):
         else:
             break
     return span
+
+
+def _render_colgroup(table) -> str:
+    """从 docx 表格的 tblGrid 提取列宽，生成 colgroup HTML"""
+    tbl = table._element
+    tblGrid = tbl.find(qn('w:tblGrid'))
+    if tblGrid is None:
+        return ""
+    cols = tblGrid.findall(qn('w:gridCol'))
+    if not cols:
+        return ""
+    col_tags = []
+    for col in cols:
+        w = col.get(qn('w:w'))
+        if w:
+            # EMU → pt (1pt = 12700 EMU)
+            width_pt = int(w) / 12700
+            col_tags.append(f'<col style="width:{width_pt:.1f}pt">')
+        else:
+            col_tags.append('<col>')
+    return '<colgroup>' + ''.join(col_tags) + '</colgroup>\n'
 
 
 def _get_cell_style(cell) -> str:

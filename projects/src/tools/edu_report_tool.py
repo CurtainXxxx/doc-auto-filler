@@ -1530,6 +1530,9 @@ def _build_report_docx(template_path: str, user_data: dict, analysis_result: dic
     # 5. 填充行组
     rg_field_values = _fill_simple_row_groups(doc, analysis["row_groups"], expanded_data)
     
+    # 修复合并单元格展开
+    _fix_merged_cells(doc)
+    
     # 保存到临时文件
     tmp = tempfile.NamedTemporaryFile(suffix=".docx", delete=False)
     try:
@@ -1635,6 +1638,9 @@ def _fill_custom_template(template_path: str, user_data: dict, analysis_result: 
     for f in analysis["label_fields"]:
         if f.get("pattern") == "multi_col" and f["label"] in expanded_data:
             _fill_multi_col_field(doc, f, expanded_data[f["label"]])
+    
+    # 修复合并单元格展开
+    _fix_merged_cells(doc)
     
     # 保存
     tmp = tempfile.NamedTemporaryFile(suffix=".docx", delete=False)
@@ -2081,7 +2087,51 @@ def update_form_fields(session_id: str, field_values: str) -> str:
         return json.dumps({"success": False, "message": f"更新字段失败: {e}"}, ensure_ascii=False)
 
 
-@tool
+def _fix_merged_cells(doc):
+    """修复 python-docx 保存时合并单元格展开的问题。
+    
+    python-docx 在读取 docx 时，合并的单元格会生成多个 cell 对象共享同一个 XML 元素。
+    保存时所有 cell 都会被写入，导致内容重复。此函数清理重复的 cell XML 元素。
+    """
+    ns = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+    
+    for table in doc.tables:
+        for row in table.rows:
+            cells = row.cells
+            if len(cells) <= 1:
+                continue
+            
+            # 按 XML 元素去重：找出共享同一元素的 cell 组
+            element_to_cells = {}
+            for ci, cell in enumerate(cells):
+                eid = id(cell._tc)
+                if eid not in element_to_cells:
+                    element_to_cells[eid] = []
+                element_to_cells[eid].append(ci)
+            
+            # 只处理有共享元素的行（即有合并单元格的行）
+            has_shared = any(len(indices) > 1 for indices in element_to_cells.values())
+            if not has_shared:
+                continue
+            
+            # 构建新的 tr 子节点列表：只保留每组合并格的第一个 cell
+            tr = row._tr
+            existing_children = list(tr)
+            kept_tcs = set()
+            for eid, indices in element_to_cells.items():
+                # 只保留该合并组的第一个 visible cell
+                kept_tcs.add(cells[indices[0]]._tc)
+            
+            # 移除重复的 tc 元素
+            for child in list(tr):
+                if child.tag == f'{ns}tc' and child not in kept_tcs:
+                    tr.remove(child)
+            
+            # 确保剩余 tc 的 gridSpan 正确（python-docx 已处理，保留即可）
+            # 对于仍有 gridSpan 的 cell，确保它的宽度正确
+
+
+
 def generate_form_document(session_id: str) -> str:
     """根据当前表单状态生成Word文档。所有已填字段会被写入文档，未填字段保持空白。
 

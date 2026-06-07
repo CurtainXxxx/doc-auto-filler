@@ -40,6 +40,7 @@ class FormFillingState:
         self._fields = {}        # {field_id: {label, raw_label, fill_mode, status, value, confidence, source}}
         self._field_order = []   # 保留字段顺序
         self._analysis_result = None
+        self._row_groups_data = {}  # {group_id: [[行1列1, 行1列2, ...], [行2列1, ...], ...]}
 
         if analysis_result:
             self.init_from_analysis(analysis_result)
@@ -86,6 +87,12 @@ class FormFillingState:
         for key, value in values.items():
             if not value:
                 continue
+            # 检查是否为行组数据（如 "T0_G0": [["CS201",...], ...]）
+            if isinstance(value, list) and self._is_row_group_key(key):
+                self._row_groups_data[key] = value
+                matched.append({"field_id": key, "label": key, "value": str(value)[:100]})
+                self.updated_at = time.time()
+                continue
             fid = self._resolve_field_id(key)
             if fid and self._fields[fid]["status"] != self.CONFIRMED:
                 self._fields[fid]["status"] = self.FILLED if confidence < 1.0 else self.CONFIRMED
@@ -97,6 +104,11 @@ class FormFillingState:
                 unmatched.append(key)
         self.updated_at = time.time()
         return matched, unmatched
+
+    def _is_row_group_key(self, key: str) -> bool:
+        """判断是否为行组ID（如 T0_G0）"""
+        import re
+        return bool(re.match(r'^T\d+_G\d+$', str(key)))
 
     def confirm_fields(self, field_ids: Optional[list] = None):
         """确认字段值（将 FILLED → CONFIRMED）
@@ -213,6 +225,9 @@ class FormFillingState:
         for fid, f in self._fields.items():
             if f["value"] is not None:
                 result[f["raw_label"] or f["label"]] = f["value"]
+        # 追加行组数据
+        for gid, rows in self._row_groups_data.items():
+            result[gid] = rows
         return result
 
     def is_complete(self) -> bool:
@@ -282,6 +297,7 @@ class FormFillingState:
             "updated_at": self.updated_at,
             "fields": {fid: dict(f) for fid, f in self._fields.items()},
             "field_order": self._field_order,
+            "row_groups_data": self._row_groups_data,
             "progress": self.get_progress(),
         }
 
@@ -301,6 +317,7 @@ class FormFillingState:
         state.updated_at = data.get("updated_at", time.time())
         state._fields = data.get("fields", {})
         state._field_order = data.get("field_order", [])
+        state._row_groups_data = data.get("row_groups_data", {})
         return state
 
     @classmethod

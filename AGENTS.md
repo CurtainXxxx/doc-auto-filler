@@ -76,6 +76,9 @@ projects/                     # 技术项目根目录
 5. **模板路径解析**：`edu_report_tool.py` 中 `generate_from_template` 和 `analyze_uploaded_template` 已修复为使用 `_resolve_template_path`，支持从 `assets/` 子目录查找模板文件。
 6. **MultiAgentState**：`agent.py` 中 `MultiAgentState` 需包含 `remaining_steps` 字段以满足 LangGraph 1.0 的 `create_react_agent` 要求。
 7. **Agent 中间件**：使用 `AgentMiddleware` 子类时需同时实现 `wrap_tool_call`（同步）和 `awrap_tool_call`（异步）方法。
+8. **合并单元格处理**：`_fill_custom_template` 在 `doc.save()` 前调用 `_fix_merged_cells(doc)` 清理 python-docx 保存时展开的合并单元格副本。如遇到因合并单元格导致的内容重复，检查此函数是否正确触发。
+9. **行组（Row Group）数据支持**：`FormFillingState` 支持行组存储（`bulk_fill` 识别 `T0_G0` 等行组 key），`get_label_value_map` 返回行组数据。Agent 的 `filling_sp` 已提及行组格式，Agent 需通过 `update_form_fields` 将 `{"T0_G0": [[...], [...]]}` 传入。
+10. **langchain 兼容 shim**：2026-06-07 重建了 `langchain/callbacks` 和 `langchain/schema` 兼容 shim（指向 `langchain_classic`），解决 `StructuredTool` 启动时 ModuleNotFoundError。
 
 ## 源码仓库
 
