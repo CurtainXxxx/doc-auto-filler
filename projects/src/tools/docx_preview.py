@@ -371,8 +371,8 @@ def _render_colgroup(table) -> str:
     for col in cols:
         w = col.get(qn('w:w'))
         if w:
-            # EMU → pt (1pt = 12700 EMU)
-            width_pt = int(w) / 12700
+            # gridCol w:w 单位是 twips (1/20 pt)
+            width_pt = int(w) / 20
             col_tags.append(f'<col style="width:{width_pt:.1f}pt">')
         else:
             col_tags.append('<col>')
