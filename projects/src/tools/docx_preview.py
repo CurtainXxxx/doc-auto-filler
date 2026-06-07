@@ -367,23 +367,13 @@ def _render_colgroup(table) -> str:
     cols = tblGrid.findall(qn('w:gridCol'))
     if not cols:
         return ""
-    # 先解析所有宽度
-    col_widths = []
+    col_tags = []
     for col in cols:
         w = col.get(qn('w:w'))
         if w:
-            col_widths.append(int(w))
-        else:
-            col_widths.append(0)
-
-    total = sum(w for w in col_widths if w > 0)
-
-    col_tags = []
-    for w in col_widths:
-        if w > 0 and total > 0:
-            # 使用百分比，确保列宽总和为 100%
-            pct = w / total * 100
-            col_tags.append(f'<col style="width:{pct:.2f}%">')
+            # EMU → pt (1pt = 12700 EMU)
+            width_pt = int(w) / 12700
+            col_tags.append(f'<col style="width:{width_pt:.1f}pt">')
         else:
             col_tags.append('<col>')
     return '<colgroup>' + ''.join(col_tags) + '</colgroup>\n'

@@ -1333,7 +1333,7 @@ function createStreamingMessage() {
                 currentDocxPath = toolResult.local_path;
               }
               if (toolResult.local_path) {
-                refreshPreviewFromGeneratedDoc(toolResult.local_path, currentTemplatePath);
+                refreshPreviewFromGeneratedDoc(toolResult.local_path);
               }
             } catch(e) { console.warn('[preview] tool result parse error:', e); }
             continue;
@@ -1408,70 +1408,43 @@ function parseFieldsLines(fieldsText) {
 }
 
 // ── Refresh preview from a generated docx (update cell values in existing preview) ──
-async function refreshPreviewFromGeneratedDoc(localPath, templatePath) {
+async function refreshPreviewFromGeneratedDoc(localPath) {
   // 从生成的 docx 获取填写后的数据，更新现有预览中的单元格值
   // 不替换整个 HTML，保留 editable 结构和 data-field-id 属性
   try {
-    let url = '/generated-preview?local_path=' + encodeURIComponent(localPath);
-    if (templatePath) {
-      url += '&template_path=' + encodeURIComponent(templatePath);
-    }
-    const res = await fetch(url);
+    const res = await fetch('/generated-preview?local_path=' + encodeURIComponent(localPath));
     const data = await res.json();
     if (data.success) {
-      // 优先使用 filled_values（原始 field_id → 填充值），这是从原模板分析+按位置提取的
-      if (data.filled_values && Object.keys(data.filled_values).length > 0) {
-        let updatedCount = 0;
-        for (const [fieldId, value] of Object.entries(data.filled_values)) {
-          if (value && String(value).trim()) {
-            const strVal = String(value);
+      // 使用 field_map 中的 existing_value 精确更新每个已填单元格
+      if (data.field_map) {
+        for (const [fieldId, info] of Object.entries(data.field_map)) {
+          const existingValue = info.existing_value;
+          if (existingValue && String(existingValue).trim()) {
+            // 查找当前预览中的对应元素并更新
             const els = document.querySelectorAll('[data-field-id="' + CSS.escape(fieldId) + '"]');
             for (const el of els) {
               if (el.classList.contains('cell-value')) {
-                el.textContent = strVal;
+                el.textContent = existingValue;
                 el.classList.add('filled');
                 el.classList.remove('empty');
               } else if (el.classList.contains('editable')) {
-                el.textContent = strVal;
+                el.textContent = existingValue;
                 el.classList.remove('empty');
                 el.classList.add('filled');
               }
             }
-            if (fieldMap[fieldId]) {
-              fieldMap[fieldId].existing_value = strVal;
-            }
-            updatedCount++;
           }
         }
-        console.log('[preview] refreshPreviewFromGeneratedDoc: updated', updatedCount, 'fields from filled_values');
-      } else {
-        // 回退：使用 field_map 中的 existing_value 精确更新每个已填单元格
-        if (data.field_map) {
-          for (const [fieldId, info] of Object.entries(data.field_map)) {
-            const existingValue = info.existing_value;
-            if (existingValue && String(existingValue).trim()) {
-              const els = document.querySelectorAll('[data-field-id="' + CSS.escape(fieldId) + '"]');
-              for (const el of els) {
-                if (el.classList.contains('cell-value')) {
-                  el.textContent = existingValue;
-                  el.classList.add('filled');
-                  el.classList.remove('empty');
-                } else if (el.classList.contains('editable')) {
-                  el.textContent = existingValue;
-                  el.classList.remove('empty');
-                  el.classList.add('filled');
-                }
-              }
-            }
-          }
-          for (const [fid, info] of Object.entries(data.field_map)) {
-            if (fieldMap[fid]) {
-              fieldMap[fid].existing_value = info.existing_value || '';
-            }
+        // 注意：填充后文档的 field_map 可能不完整（已填值的单元格不再被识别为可填字段），
+        // 因此不能直接用 Object.assign 覆盖 fieldMap，只更新已有条目的 existing_value
+        for (const [fid, info] of Object.entries(data.field_map)) {
+          if (fieldMap[fid]) {
+            fieldMap[fid].existing_value = info.existing_value || '';
           }
         }
-        console.log('[preview] refreshPreviewFromGeneratedDoc: updated field values from generated doc (fallback)');
       }
+      // label_to_fields 同样不覆盖，保留原始模板的完整映射
+      console.log('[preview] refreshPreviewFromGeneratedDoc: updated field values from generated doc');
     }
   } catch(e) {
     console.warn('[preview] refreshPreviewFromGeneratedDoc failed:', e);

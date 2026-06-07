@@ -37,7 +37,7 @@ else:
     print(f"[2] 无知识文件, 跳过")
 
 # 3. 通过 SSE 发送消息
-msg = f"请使用这个知识文件 {knowledge_path} 中的信息，填充文档模板 {template_path}，并生成填写后的 docx 文件。知识文件包含申报人信息和教材信息。"
+msg = f"请分析这个文档模板并填充：{template_path}"
 print(f"[3] 发送消息: {msg}")
 print("    等待 Agent 响应 (可能需要 2-5 分钟)...")
 
