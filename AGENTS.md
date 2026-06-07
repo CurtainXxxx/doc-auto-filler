@@ -67,6 +67,34 @@ projects/                     # 技术项目根目录
 - **子项目 .coze**：`/workspace/projects/projects/.coze`
 - 两文件 `project_type` 均为 `"web"`，`preview_enable` 均为 `"enabled"`
 
+### 修复记录（2026-06-07 缓考申请单模板）
+
+使用 `缓考申请单.docx` + 模拟用户数据完整测试通过：
+
+| 问题 | 根因 | 修复 | 验证 |
+|------|------|------|------|
+| Fix 1: 课程数据未填入 | `FormFillingState` 忽略 `row_groups` | `init_from_analysis` 存储行组元信息；`bulk_fill` 识别 T0_G0 key；`get_label_value_map` 合并行组数据 | ✅ 3门课全部正确填入 |
+| Fix 2: 合并单元格重复 | python-docx 保存时展开合并单元格的副本 | `_fix_merged_cells(doc)` 在 `doc.save()` 前清理重复 `<w:tc>` XML 元素 | ✅ XML 验证 1 tc with gs=N |
+| Fix 3: 复选框未勾选 | `_detect_checkbox_row` 未识别 `□N.` 模式 | `_fill_checkbox_rows_in_table` 增加 `□` 检测，通过 `data` 字典直查相邻内容格是否有对应值 | ✅ □3→☑3, □4→☑4 |
+| Fix 4: 签名/日期错乱 | 所有日期字段共用 `"学生签名"` section context | `analyze_template` 中新增 `row_first_cell_ctx` / `cell_first_label` 机制，优先使用行首标签作为 section context | ✅ 班主任意见-日期 / 教学秘书意见-日期 / 教学院长意见-日期 各自独立 |
+| Fix 5: 学生信息未分离 | `_scan_paragraph_underline_fields` 将整个段落视为一个字段 | 修改检测逻辑，按非下划线 run 组拆分标签，为每个子字段分配 `underline_run_start` 和 `underline_run_count` | ✅ 姓名/学号/所在院系/电话 各自独立填值 |
+| Fix 6: 学生签名被过滤 | 过滤逻辑将 `existing_value="日期"` 视为已有数据 | 新增 `_is_placeholder_value` 判断短中文词为非填充数据 | ✅ 学生签名和日期字段均保留 |
+
+### 多标签段落检测机制
+
+`_scan_paragraph_underline_fields` 支持将同段落中多个非下划线 run 组拆分为独立字段：
+- 遍历段落的所有 run，标记下划线状态
+- 将非下划线 run 按空白 run 分隔为多个标签组
+- 每个标签组创建独立字段，指定 `underline_run_start` 和 `underline_run_count`
+- `_fill_paragraph_fields` 从指定索引开始查找下划线 run
+
+### 行首标签 section context 机制
+
+`analyze_template` 在检测 colon 字段时，优先使用当前行的首个单元格内容作为 section context：
+- `row_first_cell_ctx`：当前行有多个单元格时，Cell 0 的内容
+- `cell_first_label`：当前单元格第一个标签（行内只有一个单元格时）
+- 优先级：`cell_first_label(同行同单元格)` > `row_first_cell_ctx(同行Cell 0)` > `section_ctx(上方最近section标题)`
+
 ## 已知问题与注意事项
 
 1. **cozeloop 兼容层**：`cozeloop` v0.1.x 使用了 LangChain 旧版本导入路径（`langchain.callbacks.base`、`langchain.schema`），已在系统 `dist-packages` 添加兼容 shim。如果迁移到新版本 cozeloop，需移除这些 shim。

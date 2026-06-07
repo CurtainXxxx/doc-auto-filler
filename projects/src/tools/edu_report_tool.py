@@ -814,6 +814,8 @@ def _fill_paragraph_fields(doc, paragraph_fields, data):
     
     格式：段落中有"标签(无下划线) + 空白(有下划线)"的run结构，
     需要将值填入下划线run中，保留下划线格式。
+    
+    支持多标签段落：当字段有 underline_run_start 时，从指定索引开始查找下划线run。
     """
     for f in paragraph_fields:
         label = f["label"]
@@ -827,8 +829,12 @@ def _fill_paragraph_fields(doc, paragraph_fields, data):
         
         para = doc.paragraphs[p_idx]
         
+        # 如果指定了underline_run_start，从该索引开始查找
+        run_start = f.get("underline_run_start", 0)
+        runs_to_check = para.runs[run_start:]
+        
         # 找到下划线run并填入值
-        for run in para.runs:
+        for run in runs_to_check:
             is_underline = False
             if run.underline and run.underline not in (False, 0):
                 is_underline = True
@@ -904,6 +910,51 @@ def _fill_checkbox_rows_in_table(doc, analysis, data):
                 
                 if user_value is not None:
                     _fill_checkbox_row(unique, group, user_value)
+    
+    # 第二遍：检测 □N. 模式（未勾选的复选框），根据相邻内容字段在 data 中是否有值来判断是否勾选
+    for t_idx, table in enumerate(doc.tables):
+        for ri, row in enumerate(table.rows):
+            unique = _get_unique_cells(row)
+            for ci, cell in enumerate(unique):
+                text = cell.text.strip()
+                # 检测以 □ 开头的单元格（未勾选复选框）
+                if text.startswith('□') and len(text) > 1:
+                    # 检查同一行相邻的字段：提取标签名，看 data 中是否有对应值
+                    has_value = False
+                    for cj in range(ci + 1, len(unique)):
+                        neighbor_text = unique[cj].text.strip()
+                        # 提取标签名：取冒号前的部分
+                        for sep in ['：', ':']:
+                            if sep in neighbor_text:
+                                label_candidate = neighbor_text.split(sep)[0].strip()
+                                if not label_candidate:
+                                    continue
+                                # 检查 data 中是否有值
+                                if label_candidate in data and data[label_candidate]:
+                                    has_value = True
+                                    break
+                                # 模糊匹配
+                                clean_label = label_candidate.replace("\n", "").replace(" ", "")
+                                for key in data:
+                                    clean_key = key.replace("\n", "").replace(" ", "")
+                                    if clean_key == clean_label or clean_label in clean_key or clean_key in clean_label:
+                                        if data[key]:
+                                            has_value = True
+                                            break
+                                if has_value:
+                                    break
+                        if has_value:
+                            break
+                    if has_value:
+                        # 将 □ 改为 ☑（在第一个包含 □ 的 run 中替换）
+                        for p in cell.paragraphs:
+                            for run in p.runs:
+                                if '□' in run.text:
+                                    run.text = run.text.replace('□', '☑', 1)
+                                    break
+                            else:
+                                continue
+                            break
 
 
 def _fill_simple_row_groups(doc, groups, data):

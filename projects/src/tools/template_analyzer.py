@@ -277,11 +277,12 @@ def _get_grid_span(cell) -> int:
 def _scan_paragraph_underline_fields(doc) -> list:
     """扫描文档正文段落中的下划线横线字段（如"教材名称______"）。
     
-    这些字段不在表格中，而是文档正文段落里的"标签+下划线空白"格式。
+    支持单标签和多标签段落（如"姓名___ 学号___ 所在院系___ 电话___"）：
+    多标签段落会被拆分为多个独立字段，每个字段带 underline_run_start 标注。
     
     Returns:
         list[dict]: 字段列表，每个字段包含:
-            - field_id: "P{paragraph_idx}"
+            - field_id: "P{paragraph_idx}" 或 "P{paragraph_idx}_{group_idx}"
             - label: 标签文字
             - pattern: "paragraph_underline"
             - table_idx: -1 (不在表格中)
@@ -292,6 +293,8 @@ def _scan_paragraph_underline_fields(doc) -> list:
             - description: 描述文字
             - row_indices: [段落索引]
             - repeat_count: 1
+            - underline_run_start: 该字段对应的首个下划线run索引
+            - underline_run_count: 该字段对应的下划线run数量
     """
     fields = []
     for p_idx, para in enumerate(doc.paragraphs):
@@ -299,15 +302,16 @@ def _scan_paragraph_underline_fields(doc) -> list:
         if not text:
             continue
         
-        # 检查段落中是否包含下划线run
-        label_text = ""
-        has_underline_blank = False
-        for run in para.runs:
+        # 分析run结构：拆分为[label_group, underline_group]交替序列
+        groups = []  # [(type, start_idx, count)]  type: "label" or "blank"
+        current_type = None
+        current_start = 0
+        current_count = 0
+        
+        for ri, run in enumerate(para.runs):
             is_underline = False
-            # 检查python-docx的underline属性
             if run.underline and run.underline not in (False, 0):
                 is_underline = True
-            # 也检查XML中的w:u元素
             if not is_underline:
                 rPr = run._element.find(qn('w:rPr'))
                 if rPr is not None:
@@ -317,48 +321,89 @@ def _scan_paragraph_underline_fields(doc) -> list:
                         if val and val not in ('none',):
                             is_underline = True
             
-            if is_underline:
-                # 下划线run，内容应该是空白/空格（待填区域）
-                if not run.text.strip():
-                    has_underline_blank = True
-                else:
-                    # 下划线run有内容，可能已有值，暂不处理
-                    pass
+            run_type = "blank" if (is_underline and not run.text.strip()) else "label"
+            
+            if run_type == current_type and current_count > 0:
+                current_count += 1
             else:
-                # 非下划线run，收集标签文字
-                label_text += run.text
+                if current_type is not None and current_count > 0:
+                    groups.append((current_type, current_start, current_count))
+                current_type = run_type
+                current_start = ri
+                current_count = 1
         
-        label_text = label_text.strip()
+        # 添加最后一组
+        if current_type is not None and current_count > 0:
+            groups.append((current_type, current_start, current_count))
         
-        if not has_underline_blank or not label_text:
+        # 提取[label, blank]对
+        label_groups = []  # [(label_text, blank_start, blank_count), ...]
+        for gi in range(len(groups) - 1):
+            if groups[gi][0] == "label" and groups[gi+1][0] == "blank":
+                label_text = ""
+                for ri in range(groups[gi][1], groups[gi][1] + groups[gi][2]):
+                    label_text += para.runs[ri].text
+                label_text = label_text.strip()
+                if label_text:
+                    label_groups.append((label_text, groups[gi+1][1], groups[gi+1][2]))
+        
+        if not label_groups:
             continue
         
-        # 过滤：标签太短或太长的不合理
-        if len(label_text) < 2 or len(label_text) > 20:
-            continue
-        
-        # 过滤黑名单
-        if label_text in _LABEL_BLACKLIST:
-            continue
-        
-        # 过滤选项类
-        normalized = label_text.replace(" ", "").replace("　", "")
-        if label_text in _OPTION_WORDS or normalized in _OPTION_WORDS:
-            continue
-        
-        fields.append({
-            "field_id": f"P{p_idx}",
-            "label": label_text,
-            "pattern": "paragraph_underline",
-            "table_idx": -1,
-            "row_idx": p_idx,
-            "col_idx": -1,
-            "existing_value": "",
-            "fill_mode": "paragraph_underline",
-            "description": f"请填写{label_text}",
-            "row_indices": [p_idx],
-            "repeat_count": 1,
-        })
+        # 过滤：所有标签太短或太长的不合理
+        # 单标签：2-20字；多标签：每个2-15字
+        if len(label_groups) == 1:
+            label_text = label_groups[0][0]
+            if len(label_text) < 2 or len(label_text) > 20:
+                continue
+            # 过滤黑名单
+            if label_text in _LABEL_BLACKLIST:
+                continue
+            normalized = label_text.replace(" ", "").replace("　", "")
+            if label_text in _OPTION_WORDS or normalized in _OPTION_WORDS:
+                continue
+            
+            fields.append({
+                "field_id": f"P{p_idx}",
+                "label": label_text,
+                "pattern": "paragraph_underline",
+                "table_idx": -1,
+                "row_idx": p_idx,
+                "col_idx": -1,
+                "existing_value": "",
+                "fill_mode": "paragraph_underline",
+                "description": f"请填写{label_text}",
+                "row_indices": [p_idx],
+                "repeat_count": 1,
+                "underline_run_start": label_groups[0][1],
+                "underline_run_count": label_groups[0][2],
+            })
+        else:
+            # 多标签段落：拆分为多个独立字段
+            for gi, (lbl, blank_start, blank_count) in enumerate(label_groups):
+                if len(lbl) < 2 or len(lbl) > 15:
+                    continue
+                if lbl in _LABEL_BLACKLIST:
+                    continue
+                normalized = lbl.replace(" ", "").replace("　", "")
+                if lbl in _OPTION_WORDS or normalized in _OPTION_WORDS:
+                    continue
+                
+                fields.append({
+                    "field_id": f"P{p_idx}_G{gi}",
+                    "label": lbl,
+                    "pattern": "paragraph_underline",
+                    "table_idx": -1,
+                    "row_idx": p_idx,
+                    "col_idx": -1,
+                    "existing_value": "",
+                    "fill_mode": "paragraph_underline",
+                    "description": f"请填写{lbl}",
+                    "row_indices": [p_idx],
+                    "repeat_count": 1,
+                    "underline_run_start": blank_start,
+                    "underline_run_count": blank_count,
+                })
     
     return fields
 
@@ -412,9 +457,24 @@ def analyze_template(template_path: str) -> dict:
                 if (t_idx, up_r) in _row_section_titles:
                     section_ctx = _row_section_titles[(t_idx, up_r)]
                     break
+            
+            # 也检查当前行的首个单元格是否可作为上下文（如"班主任意见 | 日期"的"班主任意见"）
+            # 当单元格0有短标签且当前字段在非0列时，优先用当前行上下文
+            row_first_cell_ctx = None
+            if len(unique) > 1 and not _is_section_title_row(unique):
+                first_text = unique[0].text.strip()
+                if 2 <= len(first_text) <= 15 and first_text not in _OPTION_WORDS:
+                    row_first_cell_ctx = first_text
 
             for c_idx, cell in enumerate(unique):
                 labels = _extract_labels_from_cell(cell)
+                
+                # 当单元格包含多个冒号分隔的标签时（如"学生签名：日期："），
+                # 第一个标签可作为后续标签的section上下文
+                cell_first_label = None
+                if labels and len(labels) > 1:
+                    cell_first_label = labels[0][0]
+                
                 for line_idx, (label, existing_value) in enumerate(labels):
                     # 过滤掉过长的"标签"（实际是段落文本，如课程教学目标描述）
                     if len(label) > 25:
@@ -423,14 +483,21 @@ def analyze_template(template_path: str) -> dict:
                     # 如果有section上下文，用"section标题-label"格式区分
                     display_label = label
                     desc = f"请填写{label}" if not existing_value else f"{label}(已有:{existing_value})"
-                    if section_ctx and label in ("负责人签名", "申请人签名", "签名", "日期", "审批意见"):
+                    # 优先使用当前行的首个单元格作为上下文（如"班主任意见 | 日期" → "班主任意见-日期"）
+                    effective_ctx = section_ctx
+                    if row_first_cell_ctx and c_idx > 0:
+                        effective_ctx = row_first_cell_ctx
+                    # 同一单元格内的多标签，用首个标签作为后续标签的上下文（如"学生签名：日期：" → "学生签名-日期"）
+                    if cell_first_label and line_idx > 0:
+                        effective_ctx = cell_first_label
+                    if effective_ctx and label in ("负责人签名", "申请人签名", "签名", "日期", "审批意见"):
                         # 截取section标题的关键区分部分
-                        short_ctx = section_ctx
-                        if len(section_ctx) > 8:
+                        short_ctx = effective_ctx
+                        if len(effective_ctx) > 8:
                             # 取关键词：去掉"审批意见"/"审批"等后缀
                             for suffix in ["审批意见", "审批", "意见"]:
-                                if section_ctx.endswith(suffix) and len(section_ctx) > len(suffix) + 2:
-                                    short_ctx = section_ctx[:-len(suffix)]
+                                if effective_ctx.endswith(suffix) and len(effective_ctx) > len(suffix) + 2:
+                                    short_ctx = effective_ctx[:-len(suffix)]
                                     break
                             # 如果仍超8字，进一步缩短
                             if len(short_ctx) > 8:
@@ -658,8 +725,18 @@ def analyze_template(template_path: str) -> dict:
 
     # ── 5. 过滤掉已有值的字段（不需要用户填写） ──
     # 注意：占位符字段（fill_mode="replace"）的existing_value是占位符文本，需要保留
+    def _is_placeholder_value(v: str) -> bool:
+        """判断existing_value是否只是另一个标签（如'学生签名：日期'中的'日期'），而非实际填充数据"""
+        stripped = v.strip()
+        if not stripped:
+            return True  # 纯空格视为空
+        if len(stripped) <= 6 and all('\u4e00' <= c <= '\u9fff' or c in '年月日时分秒' for c in stripped):
+            return True  # 短中文词（可能是另一个标签）
+        return False
+
     deduped_fields = [f for f in deduped_fields
-                      if not f["existing_value"] or f.get("fill_mode") == "replace"]
+                      if not f["existing_value"] or f.get("fill_mode") == "replace"
+                      or _is_placeholder_value(f["existing_value"])]
     
     # ── 5.5 过滤掉完全属于行组区域的multi_col字段 ──
     # 行组区域由行组填充逻辑处理，不需要单独的字段
