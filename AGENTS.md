@@ -80,6 +80,14 @@ projects/                     # 技术项目根目录
 | Fix 5: 学生信息未分离 | `_scan_paragraph_underline_fields` 将整个段落视为一个字段 | 修改检测逻辑，按非下划线 run 组拆分标签，为每个子字段分配 `underline_run_start` 和 `underline_run_count` | ✅ 姓名/学号/所在院系/电话 各自独立填值 |
 | Fix 6: 学生签名被过滤 | 过滤逻辑将 `existing_value="日期"` 视为已有数据 | 新增 `_is_placeholder_value` 判断短中文词为非填充数据 | ✅ 学生签名和日期字段均保留 |
 
+### 修复记录（2026-06-07 预览错乱 + 生成文档字段提取）
+
+| 问题 | 根因 | 修复 | 验证 |
+|------|------|------|------|
+| Fix 7: 预览列错乱 | colgroup 使用绝对 `pt` 宽度 + `table-layout: fixed` + `width:100%`，浏览器对剩余空间分配不一致 | `_render_colgroup` 将 pt 转换为百分比宽度，确保各列总和为 100% | ✅ 11 列全部 % 格式 |
+| Fix 8: `/generated-preview` 字段提取不匹配 | 对已填充 docx 重新运行 `analyze_template` 只能检测 3 个字段（原模板 30 个），且 field_id 格式不同 | 新增 `filled_values` 返回原始 field_id → 填充值映射，按(表/行/列)位置从生成文档提取值 | ✅ 25/30 字段正确提取 |
+| Fix 9: 前端 field_id 不匹配 | `refreshPreviewFromGeneratedDoc` 使用生成文档的 field_map（3 条错误 ID）无法匹配 DOM 中的原始 field_id | 修改函数优先使用 `filled_values`（原始 field_id），通过 `template_path` 参数传递给后端 | ✅ 原始 field_id 直查 DOM |
+
 ### 多标签段落检测机制
 
 `_scan_paragraph_underline_fields` 支持将同段落中多个非下划线 run 组拆分为独立字段：
@@ -107,12 +115,14 @@ projects/                     # 技术项目根目录
 8. **合并单元格处理**：`_fill_custom_template` 在 `doc.save()` 前调用 `_fix_merged_cells(doc)` 清理 python-docx 保存时展开的合并单元格副本。如遇到因合并单元格导致的内容重复，检查此函数是否正确触发。
 9. **行组（Row Group）数据支持**：`FormFillingState` 支持行组存储（`bulk_fill` 识别 `T0_G0` 等行组 key），`get_label_value_map` 返回行组数据。Agent 的 `filling_sp` 已提及行组格式，Agent 需通过 `update_form_fields` 将 `{"T0_G0": [[...], [...]]}` 传入。
 10. **langchain 兼容 shim**：2026-06-07 重建了 `langchain/callbacks` 和 `langchain/schema` 兼容 shim（指向 `langchain_classic`），解决 `StructuredTool` 启动时 ModuleNotFoundError。
+11. **预览列宽处理**：`docx_preview.py` 中 `_render_colgroup` 将 gridCol 宽度从 twips 转换为百分比（非 pt/px），配合 `table-layout: fixed` 避免列错乱。
+12. **生成文档预览字段提取**：`/generated-preview` 端点支持 `template_path` 参数。当提供此参数时，使用原始模板的 `analyze_template` 分析结果中的 field_id，按(表/行/列)位置从生成文档提取值，返回 `filled_values` 映射。前端 `refreshPreviewFromGeneratedDoc` 优先使用 `filled_values` 而非 `field_map`。
 
 ## 源码仓库
 
 - **GitHub**：`https://github.com/CurtainXxxx/doc-auto-fillter`
 - **当前分支**：`feature/v2-fill-enhance-v2`
-- **最新提交**：`90259b7` — fix: 打印CSS补全
+- **最新提交**：`90259b7` — fix: 打印CSS补全 + 预览列宽百分比 + generated-preview 字段映射修复
 
 ## 下一步开发计划
 

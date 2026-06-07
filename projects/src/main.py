@@ -821,8 +821,13 @@ async def template_preview(path: str = ""):
 
 
 @app.get("/generated-preview")
-async def generated_preview(local_path: str = ""):
-    """将生成的 docx 文件转为 HTML 预览（含填写后的内容）"""
+async def generated_preview(local_path: str = "", template_path: str = ""):
+    """将生成的 docx 文件转为 HTML 预览（含填写后的内容）
+    
+    为了提高字段提取准确性，支持传入原模板路径 template_path。
+    当 template_path 提供时，使用原模板的字段分析结果（field_id），
+    再从生成文档中按(表/行/列)位置提取实际填充值。
+    """
     if not local_path:
         return JSONResponse(content={"success": False, "message": "缺少 local_path 参数"})
 
@@ -834,12 +839,47 @@ async def generated_preview(local_path: str = ""):
 
     try:
         from tools.docx_preview import docx_to_html
+        from docx import Document
+
+        # 先提取生成文档的完整 HTML（用 analyze_template）
         result = docx_to_html(safe_local_path)
+        
+        # 如果有原模板路径，用原模板的 field_map 生成正确的 field_id → 值映射
+        filled_values = {}  # original field_id → filled value
+        if template_path:
+            safe_tpl_path = _safe_path(template_path)
+            if os.path.exists(safe_tpl_path):
+                from tools.template_analyzer import analyze_template
+                orig_analysis = analyze_template(safe_tpl_path)
+                
+                # 读取生成文档，按位置提取值
+                gen_doc = Document(safe_local_path)
+                
+                # 遍历原始模板所有字段，从生成文档同位置提取值
+                for f in orig_analysis["label_fields"]:
+                    fid = f.get("field_id", "")
+                    if not fid:
+                        continue
+                    t_idx = f["table_idx"]
+                    r_idx = f["row_idx"]
+                    c_idx = f["col_idx"]
+                    
+                    try:
+                        if t_idx < len(gen_doc.tables):
+                            table = gen_doc.tables[t_idx]
+                            if r_idx < len(table.rows) and c_idx < len(table.rows[r_idx].cells):
+                                cell_text = table.rows[r_idx].cells[c_idx].text.strip()
+                                if cell_text:
+                                    filled_values[fid] = cell_text
+                    except Exception:
+                        pass
+        
         return JSONResponse(content={
             "success": True,
             "html": result["html"],
             "field_map": result["field_map"],
             "label_to_fields": result["label_to_fields"],
+            "filled_values": filled_values,  # 原始 field_id → 填充值
         })
     except Exception as e:
         logger.exception("generated-preview failed")
