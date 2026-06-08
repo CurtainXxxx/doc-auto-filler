@@ -1,6 +1,11 @@
 #!/bin/bash
 set -eo pipefail
 
+# 自动定位项目根目录（脚本位于 projects/scripts/，项目根在 projects/）
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_DIR"
+
 # 初始化目录
 if [ "$COZE_PROJECT_ENV" = "DEV" ]; then
   if [ ! -d "${COZE_WORKSPACE_PATH}/assets" ]; then
