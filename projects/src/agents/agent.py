@@ -178,8 +178,9 @@ def _has_facts(messages: list) -> bool:
                 return True
             if _RE_KNOWLEDGE_DONE.search(content):
                 return True
-            # 检查 extract_facts 工具的成功返回
-            if '"fact_count"' in content and '"facts"' in content:
+            # 检查 extract_facts 工具的成功返回（fact_count > 0）
+            import re
+            if re.search(r'"fact_count"\s*:\s*[1-9]\d*', content):
                 return True
     return False
 
