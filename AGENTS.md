@@ -107,6 +107,7 @@ projects/                     # 技术项目根目录
 8. **合并单元格处理**：`_fill_custom_template` 在 `doc.save()` 前调用 `_fix_merged_cells(doc)` 清理 python-docx 保存时展开的合并单元格副本。如遇到因合并单元格导致的内容重复，检查此函数是否正确触发。
 9. **行组（Row Group）数据支持**：`FormFillingState` 支持行组存储（`bulk_fill` 识别 `T0_G0` 等行组 key），`get_label_value_map` 返回行组数据。Agent 的 `filling_sp` 已提及行组格式，Agent 需通过 `update_form_fields` 将 `{"T0_G0": [[...], [...]]}` 传入。
 10. **langchain 兼容 shim**：2026-06-07 重建了 `langchain/callbacks` 和 `langchain/schema` 兼容 shim（指向 `langchain_classic`），解决 `StructuredTool` 启动时 ModuleNotFoundError。
+11. **部署 API Key 配置**：`agent.py` 的 `_build_llm` 增加 `config/agent_llm_config.json` 的 `external_llm` 段作为 fallback。部署环境无 `.env` 文件时，从此段读取 `api_key`/`base_url`/`model`。如需更换 API Key，直接修改 `config/agent_llm_config.json` 的 `external_llm.api_key` 后重新部署。
 
 ## 源码仓库
 

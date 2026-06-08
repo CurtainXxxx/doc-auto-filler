@@ -56,8 +56,30 @@ def _sanitize_messages(state, runtime):
 
 # ── LLM 构建 ──
 def _build_llm(ctx=None):
-    """构建 LLM 实例：优先外部 API，fallback 平台内置模型"""
+    """构建 LLM 实例：优先外部 API（环境变量 → config fallback），再 fallback 平台内置模型"""
     external_key = os.getenv("EXTERNAL_LLM_API_KEY")
+
+    # Fallback: 从 agent_llm_config.json 读取（用于部署环境无 .env 的情况）
+    if not external_key:
+        try:
+            cfg_path = os.path.join(_project_root, "config", "agent_llm_config.json")
+            if not os.path.isfile(cfg_path):
+                cfg_path = os.path.join(
+                    os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"),
+                    "config", "agent_llm_config.json"
+                )
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                raw_cfg = json.load(f)
+            ext_cfg = raw_cfg.get("external_llm", {})
+            if ext_cfg.get("api_key"):
+                external_key = ext_cfg["api_key"]
+                # 临时设为环境变量，后续代码（如 prefill 工具）也能用到
+                os.environ["EXTERNAL_LLM_API_KEY"] = external_key
+                os.environ["EXTERNAL_LLM_BASE_URL"] = ext_cfg.get("base_url", "https://api.deepseek.com/v1")
+                os.environ["EXTERNAL_LLM_MODEL"] = ext_cfg.get("model", "deepseek-chat")
+        except Exception:
+            pass
+
     if external_key:
         return ChatOpenAI(
             model=os.getenv("EXTERNAL_LLM_MODEL", "deepseek-chat"),
