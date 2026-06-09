@@ -402,6 +402,7 @@ html, body {
   min-height: 540px;
   padding: 36px 44px;
   font-size: 10.5pt;
+  overflow-x: auto;
   line-height: 1.8;
   color: #1a1a1a;
 }
@@ -416,8 +417,10 @@ html, body {
 
 /* ── Document Table (mimic Word table) ── */
 .doc-table {
-  width: 100%;
-  table-layout: fixed;
+  width: auto !important;
+  min-width: 100%;
+  max-width: none;
+  table-layout: auto;
   border-collapse: collapse;
   margin-bottom: 12px;
   font-size: 9pt;
@@ -426,8 +429,8 @@ html, body {
 .doc-table td {
   border: 1px solid #333;
   padding: 3px 6px;
-  vertical-align: middle;
-  word-break: break-all;
+  vertical-align: top;
+  white-space: normal;
 }
 .doc-table td.label {
   background: #f8f8f8;
