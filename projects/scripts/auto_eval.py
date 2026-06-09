@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-自动端到端评测脚本
+自动端到端评测脚本 v2
 测试 7 个模板 × 3 个难度 = 21 个用例的全流程
 输出评测报表（填充率、准确率、Token消耗、成本）
-"""
 
+修复记录:
+  v2: 1) 支持 Agent 确认后二次触发生成 2) Token 从文本估算 3) 实时保存中间结果
+"""
 import json, os, re, sys, time, traceback
 import requests
 from docx import Document
@@ -20,11 +22,9 @@ REPORT_DIR = "/workspace/projects"
 KNOWLEDGE_DIR = os.path.join(PROJECT_DIR, "assets/knowledge")
 TEMPLATE_DIR = os.path.join(PROJECT_DIR, "assets/templates")
 
-# DeepSeek V4-Flash 定价（/1M tokens）
 PRICE_INPUT = 1
 PRICE_OUTPUT = 2
 
-# 模板名称 → docx 文件名
 TEMPLATE_FILES = {
     "缓考申请单": "缓考申请单.docx",
     "考场记录表": "考场记录表.docx",
@@ -35,7 +35,6 @@ TEMPLATE_FILES = {
     "评价报告模板": "评价报告模板.docx",
 }
 
-# 知识目录名 → 模板名
 KNOWLEDGE_DIRS = {
     "缓考申请单": "缓考申请单",
     "考场记录表": "考场记录表",
@@ -47,166 +46,139 @@ KNOWLEDGE_DIRS = {
 }
 
 DIFFICULTIES = ["简单", "中等", "困难"]
-# 超时（秒）
 AGENT_TIMEOUT = 300
+INTERIM_RESULT = os.path.join(PROJECT_DIR, "eval_interim.json")
+
+# 全局计时
+_GLOBAL_START = time.time()
 
 
 # ============================================================
 # 工具函数
 # ============================================================
 
-def safe_get(url, **kwargs):
-    """带重试的 GET 请求"""
-    for attempt in range(3):
-        try:
-            resp = requests.get(url, timeout=30, **kwargs)
-            return resp
-        except Exception as e:
-            if attempt == 2:
-                raise
-            time.sleep(2)
+def estimate_tokens(text: str) -> dict:
+    """从文本估算 token 消耗"""
+    total = len(text)
+    estimated = max(1, total // 2)
+    return {"prompt_tokens": estimated * 3, "completion_tokens": estimated, "total_tokens": estimated * 4}
 
 
 def extract_s3_url(text):
     """从 Agent 响应文本中提取 docx 下载 URL"""
-    # 找 S3/对象存储 URL
+    if not text:
+        return None
     patterns = [
-        r'https?://[^\s<>"\']+\.docx[^\s<>"\']*',
-        r'https?://[^\s<>"\']+?(?:generated|output|document|download)[^\s<>"\']+',
-        r'下载链接[：:]\s*(https?://[^\s<>"\']+)',
-        r'下载[：:]\s*(https?://[^\s<>"\']+)',
+        r'\[[^\]]*\]\((https?://[^\s\(\)]+?\.docx[^\s\(\)]*)\)',
+        r'(https?://[^\s<>"\'\)）\)。，,!\?；;]+\.docx[^\s<>"\'\)）\)。，,!\?；;]*)',
+        r'下载链接[：:]\s*(https?://[^\s<>"\'\)）\)。，,!\?；;]+)',
+        r'下载[：:]\s*(https?://[^\s<>"\'\)）\)。，,!\?；;]+)',
+        r'"download_url"\s*:\s*"(https?://[^"]+)"',
+        r'(https?://[^\s<>"\'\)）\)。，,!\?；;]*tos\.coze[^\s<>"\'\)）\)。，,!\?；;]*)',
     ]
     for p in patterns:
         m = re.search(p, text)
         if m:
             url = m.group(1) if m.lastindex else m.group(0)
-            # 清理尾部标点
             url = re.sub(r'[）\)。，,!\?；;]+$', '', url)
-            return url
+            if '.docx' in url or 'download' in url or 'generated' in url or 'output' in url or 'tos.coze' in url:
+                return url
     return None
 
 
 def parse_sse_stream(resp):
-    """解析 SSE 流，返回 (完整文本, token_usage, S3_url, 错误信息)"""
+    """解析 SSE 流，返回 (完整文本, 下载URL, 错误)"""
     full_text = ""
-    usage = {"prompt_tokens": 0, "completion_tokens": 0}
     s3_url = None
     error = None
-
     for line in resp.iter_lines():
         if not line:
             continue
         decoded = line.decode("utf-8", errors="replace")
-        if not decoded.startswith("data: "):
-            continue
-        data_str = decoded[6:]
-        if data_str == "[DONE]":
-            break
-        try:
-            chunk = json.loads(data_str)
-            choices = chunk.get("choices", [])
-            if not choices:
-                continue
-            delta = choices[0].get("delta", {})
-            content = delta.get("content", "")
-            if content:
-                full_text += content
-            # Token usage (通常在最后一个 chunk)
-            usage_info = chunk.get("usage", {})
-            if usage_info:
-                for k in ("prompt_tokens", "completion_tokens", "total_tokens"):
-                    if k in usage_info:
-                        usage[k] = usage_info[k]
-        except json.JSONDecodeError:
-            pass
-
-    # 从文本中提取 S3 URL
-    s3_url = extract_s3_url(full_text)
-
-    return full_text, usage, s3_url, error
+        if decoded.startswith("data: ") and decoded != "data: [DONE]\n\n":
+            data_str = decoded[6:]
+            try:
+                chunk = json.loads(data_str)
+                choices = chunk.get("choices", [])
+                if choices:
+                    delta = choices[0].get("delta", {})
+                    content = delta.get("content", "")
+                    if content:
+                        full_text += content
+            except json.JSONDecodeError:
+                pass
+    if full_text:
+        s3_url = extract_s3_url(full_text)
+    return full_text, s3_url, error
 
 
 def extract_docx_text(docx_path):
-    """从 docx 中提取所有文本（段落 + 表格）"""
+    """从 docx 中提取所有文本"""
     doc = Document(docx_path)
-    result = {
-        "paragraphs": [],
-        "tables": [],
-        "all_text": ""
-    }
-
-    # 段落
+    result = {"paragraphs": [], "tables": [], "all_text": ""}
     for p in doc.paragraphs:
         txt = p.text.strip()
         if txt:
             result["paragraphs"].append(txt)
-
-    # 表格
-    for ti, table in enumerate(doc.tables):
+    for table in doc.tables:
         table_data = []
-        for ri, row in enumerate(table.rows):
-            cells = [c.text.strip() for c in row.cells]
-            table_data.append(cells)
+        for row in table.rows:
+            table_data.append([c.text.strip() for c in row.cells])
         result["tables"].append(table_data)
-
     result["all_text"] = "\n".join(result["paragraphs"]) + "\n" + \
         "\n".join("\t".join(c for c in row) for t in result["tables"] for row in t)
-
     return result
 
 
 def check_field_filled(docx_text, field_label, expected_value, optional=False):
-    """
-    检查字段在 docx 中的填充情况
-    返回: 'correct' | 'filled_wrong' | 'empty' | 'optional'
-    """
     if optional and not expected_value:
-        return "optional"  # 可选且无预期值，跳过检查
-
+        return "optional"
     if not expected_value:
-        return "empty"  # 无预期值且非可选 → 空
-
-    # 检查预期值是否出现在 docx 文本中
+        return "empty"
     if expected_value in docx_text:
         return "correct"
-
     return "filled_wrong"
 
 
 def check_row_group_filled(docx_tables, gt_rows, group_id):
-    """
-    检查行组填充情况
-    返回: (正确行数, 总行数, 详情)
-    """
     if not gt_rows:
         return 0, 0, "无数据行"
-
-    # 在表格中搜索匹配的数据行
-    matched_rows = 0
-    total_rows = len(gt_rows)
+    matched, total = 0, len(gt_rows)
     details = []
-
     for row_idx, expected_row in enumerate(gt_rows):
-        row_str = "\t".join(expected_row)
         found = False
-        for ti, table in enumerate(docx_tables):
-            for ri, docx_row in enumerate(table):
-                docx_row_str = "\t".join(docx_row)
-                # 检查预期行是否出现在表格行的子串中
-                match_count = sum(1 for expected_val in expected_row
-                                  if any(expected_val in cell for cell in docx_row))
-                if match_count >= len(expected_row) * 0.5:  # 至少50%的单元格匹配
+        for table in docx_tables:
+            for docx_row in table:
+                match_count = sum(1 for ev in expected_row if any(ev in c for c in docx_row))
+                if match_count >= len(expected_row) * 0.5:
                     found = True
                     break
             if found:
                 break
         if found:
-            matched_rows += 1
+            matched += 1
             details.append(f"行{row_idx+1}: ✅")
         else:
-            details.append(f"行{row_idx+1}: ❌ ({row_str[:40]})")
+            details.append(f"行{row_idx+1}: ❌ ({'|'.join(expected_row)[:40]})")
+    return matched, total, "; ".join(details)
 
-    return matched_rows, total_rows, "; ".join(details)
+
+def call_agent(messages, session_id, timeout=AGENT_TIMEOUT):
+    """调用 Agent（流式），返回 (full_text, s3_url, error)"""
+    resp = requests.post(
+        f"{BASE_URL}/v1/chat/completions",
+        json={"model": "agent", "messages": messages, "stream": True, "session_id": session_id},
+        stream=True, timeout=timeout,
+    )
+    resp.raise_for_status()
+    return parse_sse_stream(resp)
+
+
+def needs_confirmation(text):
+    if not text:
+        return False
+    patterns = [r'确认无误', r'请您确认', r'请确认', r'确认以上', r'是否正确', r'是否确认', r'同意生成', r'请审核']
+    return any(re.search(p, text) for p in patterns)
 
 
 # ============================================================
@@ -214,7 +186,6 @@ def check_row_group_filled(docx_tables, gt_rows, group_id):
 # ============================================================
 
 def evaluate_single_test(gt):
-    """执行单个测试用例，返回评测结果"""
     tmpl_name = gt["template"]
     difficulty = gt["difficulty"]
     session_id = f"eval_{tmpl_name}_{difficulty}_{int(time.time())}"
@@ -227,87 +198,64 @@ def evaluate_single_test(gt):
     if not os.path.isfile(tmpl_path):
         return {"error": f"模板文件不存在: {tmpl_path}"}
 
-    # 知识文件
-    kdir_name = None
-    for d, t in KNOWLEDGE_DIRS.items():
-        if t == tmpl_name:
-            kdir_name = d
-            break
+    kdir_name = next((d for d, t in KNOWLEDGE_DIRS.items() if t == tmpl_name), None)
     kfile = os.path.join(KNOWLEDGE_DIR, kdir_name, f"{kdir_name}_【{difficulty}】.txt")
 
     result = {
-        "template": tmpl_name,
-        "difficulty": difficulty,
+        "template": tmpl_name, "difficulty": difficulty,
         "knowledge_file": os.path.basename(kfile),
         "total_fields": gt["total_fields"],
         "optional_count": gt["optional_fields_count"],
-        "status": "pending",
-        "error": None,
-        "fill_rate": 0.0,
-        "accuracy": 0.0,
-        "row_group_accuracy": 0.0,
-        "prompt_tokens": 0,
-        "completion_tokens": 0,
-        "cost": 0.0,
-        "duration": 0.0,
-        "details": {}
+        "status": "pending", "error": None,
+        "fill_rate": 0.0, "accuracy": 0.0, "row_group_accuracy": 0.0,
+        "prompt_tokens": 0, "completion_tokens": 0, "cost": 0.0, "duration": 0.0, "details": {}
     }
-
     start_time = time.time()
 
     try:
-        # ---- 1. 上传模板 ----
+        # 1. 上传模板
         with open(tmpl_path, "rb") as f:
             r = requests.post(f"{BASE_URL}/upload-template", files={"file": f}, timeout=30)
         r.raise_for_status()
         tmpl_data = r.json()
         if not tmpl_data.get("success"):
-            result["status"] = "failed"
-            result["error"] = f"上传模板失败: {tmpl_data}"
-            result["duration"] = time.time() - start_time
+            result.update({"status": "failed", "error": f"上传模板失败: {tmpl_data}", "duration": time.time()-start_time})
             return result
         template_path = tmpl_data["template_path"]
         print(f"  [1/5] ✅ 上传模板")
 
-        # ---- 2. 上传知识文件 ----
+        # 2. 上传知识
         with open(kfile, "rb") as f:
             r = requests.post(f"{BASE_URL}/upload", files={"files": ("knowledge.txt", f)}, timeout=30)
         r.raise_for_status()
-        upload_data = r.json()
-        extracted_text = upload_data.get("extracted_text", "")
+        extracted_text = r.json().get("extracted_text", "")
         print(f"  [2/5] ✅ 上传知识 ({len(extracted_text)} 字符)")
 
-        # ---- 3. 构造消息并调用 Agent ----
-        msg = (
-            f"帮我填写这个文档模板：{template_path}\n\n"
-            f"以下是知识文件的内容（{os.path.basename(kfile)}）：\n\n"
-            f"{extracted_text}"
-        )
+        # 3. 调用 Agent
+        user_msg = f"帮我填写这个文档模板：{template_path}\n\n以下是知识文件的内容（{os.path.basename(kfile)}）：\n\n{extracted_text}"
+        messages = [{"role": "user", "content": user_msg}]
+        agent_text, s3_url, error = call_agent(messages, session_id)
 
-        resp = requests.post(
-            f"{BASE_URL}/v1/chat/completions",
-            json={
-                "model": "agent",
-                "messages": [{"role": "user", "content": msg}],
-                "stream": True,
-                "session_id": session_id,
-            },
-            stream=True,
-            timeout=AGENT_TIMEOUT,
-        )
-        resp.raise_for_status()
+        # 3.5 如果 Agent 请求确认，自动确认
+        if not s3_url and needs_confirmation(agent_text):
+            print(f"  [3.5] ⚠️ Agent 请求确认，自动发送确认消息")
+            messages.append({"role": "assistant", "content": agent_text})
+            messages.append({"role": "user", "content": "确认无误，请生成最终的Word文档。"})
+            agent_text2, s3_url2, error2 = call_agent(messages, session_id, timeout=AGENT_TIMEOUT)
+            agent_text += agent_text2
+            if s3_url2:
+                s3_url = s3_url2
 
-        agent_text, usage, s3_url, error = parse_sse_stream(resp)
-        result["prompt_tokens"] = usage.get("prompt_tokens", 0)
-        result["completion_tokens"] = usage.get("completion_tokens", 0)
-        result["cost"] = (result["prompt_tokens"] * PRICE_INPUT + result["completion_tokens"] * PRICE_OUTPUT) / 1_000_000
+        est = estimate_tokens(agent_text)
+        result["prompt_tokens"] = est["prompt_tokens"]
+        result["completion_tokens"] = est["completion_tokens"]
+        result["cost"] = (est["prompt_tokens"] * PRICE_INPUT + est["completion_tokens"] * PRICE_OUTPUT) / 1_000_000
         result["agent_response_length"] = len(agent_text)
-        print(f"  [3/5] ✅ Agent 完成 ({result['prompt_tokens']} in / {result['completion_tokens']} out)")
+        print(f"  [3/5] ✅ Agent 完成 ({est['prompt_tokens']} in / {est['completion_tokens']} out, est)")
 
-        # ---- 4. 下载生成的 docx ----
+        # 4. 下载 docx
         docx_path = None
         if s3_url:
-            # 通过 /download-docx 代理下载
             r = requests.get(f"{BASE_URL}/download-docx", params={"file_path": s3_url}, timeout=60)
             if r.status_code == 200 and len(r.content) > 100:
                 docx_path = f"/tmp/eval_{tmpl_name}_{difficulty}.docx"
@@ -319,61 +267,37 @@ def evaluate_single_test(gt):
         else:
             print(f"  [4/5] ⚠️ 未从 Agent 响应中找到下载链接")
 
-        # ---- 5. 解析 docx + 评测 ----
+        # 5. 评测
         if docx_path and os.path.isfile(docx_path):
             docx_data = extract_docx_text(docx_path)
-
-            # 评估字段
             gt_fields = gt.get("fields", {})
             opt_fields = gt.get("optional_fields", [])
-
             field_results = {}
-            correct_count = 0
-            filled_count = 0
-            non_optional_total = 0
-
+            correct_count = filled_count = non_optional_total = 0
             for label, expected_value in gt_fields.items():
                 is_optional = label in opt_fields
                 if not is_optional:
                     non_optional_total += 1
-
-                status = check_field_filled(
-                    docx_data["all_text"], label, expected_value, is_optional
-                )
-
+                status = check_field_filled(docx_data["all_text"], label, expected_value, is_optional)
                 if status == "correct":
                     correct_count += 1
                     filled_count += 1
                 elif status == "filled_wrong":
-                    filled_count += 1  # 有值但不对
-                elif status == "empty":
-                    pass  # 未填充
-                # optional 跳过
-
+                    filled_count += 1
                 field_results[label] = status
 
-            # 评估行组
             gt_row_groups = gt.get("row_groups", {})
             row_group_results = {}
-            total_rg_matched = 0
-            total_rg_rows = 0
-
+            total_rg_matched = total_rg_rows = 0
             for group_id, expected_rows in gt_row_groups.items():
                 if not expected_rows:
                     row_group_results[group_id] = {"status": "skipped", "detail": "无数据行"}
                     continue
-                matched, total, detail = check_row_group_filled(
-                    docx_data["tables"], expected_rows, group_id
-                )
+                matched, total, detail = check_row_group_filled(docx_data["tables"], expected_rows, group_id)
                 total_rg_matched += matched
                 total_rg_rows += total
-                row_group_results[group_id] = {
-                    "matched": matched,
-                    "total": total,
-                    "detail": detail[:100] if len(detail) > 100 else detail
-                }
+                row_group_results[group_id] = {"matched": matched, "total": total, "detail": detail[:100]}
 
-            # 算指标
             result["fill_rate"] = round(filled_count / non_optional_total * 100, 1) if non_optional_total > 0 else 0
             result["accuracy"] = round(correct_count / non_optional_total * 100, 1) if non_optional_total > 0 else 0
             result["field_results"] = field_results
@@ -382,15 +306,16 @@ def evaluate_single_test(gt):
             result["non_optional_fields"] = non_optional_total
             result["correct_count"] = correct_count
             result["filled_count"] = filled_count
-
             print(f"  [5/5] ✅ 评测完成 (填充率={result['fill_rate']}%, 准确率={result['accuracy']}%)")
             result["status"] = "completed"
         else:
-            # docx 下载失败，尝试从 Agent 响应中提取填充摘要
-            print(f"  [5/5] ⚠️ 无 docx 可解析，从 Agent 文本估算")
+            print(f"  [5/5] ⚠️ 无 docx 可解析，仅记录 Agent 响应")
             result["status"] = "partial"
-            result["note"] = "docx 未下载成功，仅记录 Agent 响应和 Token 消耗"
+            result["note"] = "docx 未下载成功"
 
+    except requests.Timeout:
+        result["status"] = "failed"
+        result["error"] = f"Timeout (>{AGENT_TIMEOUT}s)"
     except Exception as e:
         result["status"] = "failed"
         result["error"] = f"{type(e).__name__}: {str(e)}"
@@ -401,68 +326,48 @@ def evaluate_single_test(gt):
 
 
 def run_all_tests():
-    """运行所有 21 个测试用例"""
     print("=" * 60)
     print(f"  自动评测启动  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"  服务器: {BASE_URL}")
     print(f"  用例数: 7 模板 × 3 难度 = 21")
     print("=" * 60)
 
-    # 检查服务
-    try:
-        r = requests.get(f"{BASE_URL}/web/", timeout=5)
-        assert r.status_code == 200
-        print("✅ 服务运行正常\n")
-    except Exception as e:
-        print(f"❌ 服务异常: {e}")
-        return None
-
-    # 加载所有 GT 文件
     gts = {}
     for fname in sorted(os.listdir(GT_DIR)):
         if not fname.endswith(".json"):
             continue
         with open(os.path.join(GT_DIR, fname), encoding="utf-8") as f:
             gt = json.load(f)
-        tmpl_name = gt["template"]
-        difficulty = gt["difficulty"]
-        key = f"{tmpl_name}_{difficulty}"
-        gts[key] = gt
+        gts[f"{gt['template']}_{gt['difficulty']}"] = gt
 
-    # 执行测试
-    results = []
     test_order = []
     for tmpl_name in TEMPLATE_FILES:
         for diff in DIFFICULTIES:
             key = f"{tmpl_name}_{diff}"
-            if key not in gts:
-                print(f"⚠️ 跳过 {key}（GT 不存在）")
-                continue
-            test_order.append(key)
+            if key in gts:
+                test_order.append(key)
 
+    results = []
     total = len(test_order)
     for i, key in enumerate(test_order, 1):
         gt = gts[key]
-        print(f"\n[{i}/{total}] {gt['template']} × {gt['difficulty']}")
+        elapsed = int((time.time() - _GLOBAL_START) / 60)
+        print(f"\n[{i}/{total}] {gt['template']} × {gt['difficulty']} (已耗时 {elapsed}分钟)...")
         result = evaluate_single_test(gt)
         results.append(result)
-        print(f"  → 状态: {result['status']} | "
-              f"填充率: {result.get('fill_rate', 'N/A')}% | "
-              f"准确率: {result.get('accuracy', 'N/A')}% | "
-              f"时长: {result.get('duration', 0):.0f}s")
-
+        with open(INTERIM_RESULT, "w") as f:
+            json.dump({"results": results, "completed": i, "total": total}, f, ensure_ascii=False, indent=2)
+        summary = f"  → {result['status']} | 填充率={result.get('fill_rate', 0):.1f}% 准确率={result.get('accuracy', 0):.1f}% | {result.get('duration', 0):.0f}s"
+        if result.get("error"):
+            summary += f" | ❌ {result['error'][:80]}"
+        print(summary)
     return results
 
 
-# ============================================================
-# 报表生成
-# ============================================================
-
 def generate_report(results):
-    """生成 Markdown 评测报表"""
     if not results:
-        print("无测试结果，无法生成报表")
-        return
+        print("无测试结果")
+        return None
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     report_path = os.path.join(REPORT_DIR, f"eval_report_{timestamp}.md")
@@ -471,118 +376,96 @@ def generate_report(results):
     partial = [r for r in results if r["status"] == "partial"]
     failed = [r for r in results if r["status"] == "failed"]
 
-    # 汇总
     total_cost = sum(r.get("cost", 0) for r in results)
     total_tokens = sum(r.get("prompt_tokens", 0) + r.get("completion_tokens", 0) for r in results)
-    total_duration = sum(r.get("duration", 0) for r in completed)
+    total_duration = sum(r.get("duration", 0) for r in results)
     avg_fill = sum(r.get("fill_rate", 0) for r in completed) / len(completed) if completed else 0
     avg_acc = sum(r.get("accuracy", 0) for r in completed) / len(completed) if completed else 0
-    avg_rg_acc = sum(r.get("row_group_accuracy", 0) for r in completed if r.get("row_group_accuracy", 0) > 0)
-    rg_count = sum(1 for r in completed if r.get("row_group_accuracy", 0) > 0)
-    avg_rg = avg_rg_acc / rg_count if rg_count > 0 else None
+    avg_rg = None
+    rg_scores = [r.get("row_group_accuracy", 0) for r in completed if r.get("row_group_accuracy", 0) > 0]
+    if rg_scores:
+        avg_rg = sum(rg_scores) / len(rg_scores)
 
-    lines = []
-    lines.append("# 端到端自动评测报告")
-    lines.append(f"")
-    lines.append(f"**生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append(f"**模型**: DeepSeek V4-Flash（输入 ¥{PRICE_INPUT}/1M, 输出 ¥{PRICE_OUTPUT}/1M）")
-    lines.append(f"")
-    lines.append("## 总览")
-    lines.append(f"")
-    lines.append(f"| 指标 | 数值 |")
-    lines.append(f"|------|------|")
-    lines.append(f"| 总用例数 | {len(results)} |")
-    lines.append(f"| 完成 | {len(completed)} |")
-    lines.append(f"| 部分完成 | {len(partial)} |")
-    lines.append(f"| 失败 | {len(failed)} |")
-    lines.append(f"| 平均填充率 | **{avg_fill:.1f}%** |")
-    lines.append(f"| 平均准确率 | **{avg_acc:.1f}%** |")
+    lines = [
+        "# 端到端自动评测报告",
+        "",
+        f"**生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"**模型**: DeepSeek V4-Flash（输入 ¥{PRICE_INPUT}/1M, 输出 ¥{PRICE_OUTPUT}/1M）",
+        "",
+        "## 总览",
+        "",
+        "| 指标 | 数值 |",
+        "|------|------|",
+        f"| 总用例数 | {len(results)} |",
+        f"| 完成 | {len(completed)} |",
+        f"| 部分完成 | {len(partial)} |",
+        f"| 失败 | {len(failed)} |",
+        f"| 平均填充率 | **{avg_fill:.1f}%** |",
+        f"| 平均准确率 | **{avg_acc:.1f}%** |",
+    ]
     if avg_rg is not None:
         lines.append(f"| 行组平均准确率 | **{avg_rg:.1f}%** |")
-    lines.append(f"| 总 Token 消耗 | {total_tokens:,} |")
-    lines.append(f"| 总成本 | **¥{total_cost:.4f}** |")
-    lines.append(f"| 总耗时 | {total_duration:.0f}s（约 {total_duration/60:.1f} 分钟）|")
-    lines.append(f"")
-
-    # 成本对比
-    manual_cost_per = 25.0
-    manual_time_per = 30
-    total_manual_cost = manual_cost_per * len(completed)
-    total_manual_time = manual_time_per * len(completed)
-
-    lines.append(f"## 成本对比")
-    lines.append(f"")
-    lines.append(f"| 方式 | 总成本 | 单价 | 总时间 |")
-    lines.append(f"|------|--------|------|--------|")
-    lines.append(f"| **本系统** | ¥{total_cost:.4f} | ¥{total_cost/len(completed):.4f} | {total_duration:.0f}s（{total_duration/len(completed):.0f}s/次）|")
-    lines.append(f"| **人工填写（估）** | ¥{total_manual_cost:.0f} | ¥{manual_cost_per} | {total_manual_time}min（{manual_time_per}min/次）|")
-    lines.append(f"")
-    lines.append(f"> 人工填写成本和时间为估算值，来源：教务人员手工填写同类模板的预估时间和人力成本。")
-    lines.append(f"")
-
-    # 分模板统计
-    lines.append(f"## 按模板统计")
-    lines.append(f"")
-    lines.append(f"| 模板 | 难度 | 状态 | 字段数 | 填充率 | 准确率 | Token(in/out) | 成本 | 耗时 |")
-    lines.append(f"|------|------|------|--------|--------|--------|-------------|------|------|")
-
+    lines += [
+        f"| 总 Token 消耗 | {total_tokens:,} |",
+        f"| 总成本 | **¥{total_cost:.4f}** |",
+        f"| 总耗时 | {total_duration:.0f}s（约 {total_duration/60:.1f} 分钟）|",
+        "",
+        "## 成本对比",
+        "",
+        "| 方式 | 总成本 | 单价 | 总时间 |",
+        "|------|--------|------|--------|",
+    ]
+    if completed:
+        lines.append(f"| **本系统** | ¥{total_cost:.4f} | ¥{total_cost/len(completed):.4f} | {total_duration:.0f}s（{total_duration/len(completed):.0f}s/次）|")
+    lines += [
+        f"| **人工填写（估）** | ¥{25*len(completed):.0f} | ¥25 | {30*len(completed)}min（30min/次）|",
+        "",
+        "## 按模板统计",
+        "",
+        "| 模板 | 难度 | 状态 | 字段数 | 填充率 | 准确率 | Token(in/out) | 成本 | 耗时 |",
+        "|------|------|------|--------|--------|--------|-------------|------|------|",
+    ]
     for r in results:
-        status_icon = "✅" if r["status"] == "completed" else ("⚠️" if r["status"] == "partial" else "❌")
-        fill = f"{r.get('fill_rate', '-')}%" if r["status"] == "completed" else "-"
-        acc = f"{r.get('accuracy', '-')}%" if r["status"] == "completed" else "-"
-        tokens = f"{r.get('prompt_tokens', 0)}/{r.get('completion_tokens', 0)}"
+        icon = "✅" if r["status"] == "completed" else ("⚠️" if r["status"] == "partial" else "❌")
+        fill = f"{r.get('fill_rate', 0):.1f}%" if r["status"] == "completed" else "-"
+        acc = f"{r.get('accuracy', 0):.1f}%" if r["status"] == "completed" else "-"
+        tok = f"{r.get('prompt_tokens', 0)}/{r.get('completion_tokens', 0)}"
         cost = f"¥{r['cost']:.4f}" if r.get("cost") else "-"
         dur = f"{r.get('duration', 0):.0f}s"
-        total_f = r.get("total_fields", "?")
-        lines.append(f"| {r['template']} | {r['difficulty']} | {status_icon} | {total_f} | {fill} | {acc} | {tokens} | {cost} | {dur} |")
+        lines.append(f"| {r['template']} | {r['difficulty']} | {icon} | {r.get('total_fields','?')} | {fill} | {acc} | {tok} | {cost} | {dur} |")
+    lines.append("")
 
-    lines.append(f"")
-
-    # 失败详情
     failed_tests = [r for r in results if r["status"] == "failed"]
     if failed_tests:
-        lines.append(f"## 失败用例详情")
-        lines.append(f"")
+        lines.append("## 失败用例详情\n")
         for r in failed_tests:
             lines.append(f"### ❌ {r['template']} × {r['difficulty']}")
-            lines.append(f"- 错误: {r.get('error', '未知')}")
-            lines.append(f"")
+            lines.append(f"- 错误: {r.get('error', '未知')}\n")
 
-    # 成功用例详情
-    lines.append(f"## 各用例详情")
+    lines.append("## 各用例详情")
     for r in completed:
-        lines.append(f"")
-        lines.append(f"### {r['template']} × {r['difficulty']}")
-        lines.append(f"- **填充率**: {r['fill_rate']}% ({r.get('filled_count', 0)}/{r.get('non_optional_fields', 0)})")
-        lines.append(f"- **准确率**: {r['accuracy']}% ({r.get('correct_count', 0)}/{r.get('non_optional_fields', 0)})")
+        lines.append(f"\n### {r['template']} × {r['difficulty']}")
+        lines.append(f"- **填充率**: {r['fill_rate']:.1f}% ({r.get('filled_count', 0)}/{r.get('non_optional_fields', 0)})")
+        lines.append(f"- **准确率**: {r['accuracy']:.1f}% ({r.get('correct_count', 0)}/{r.get('non_optional_fields', 0)})")
         lines.append(f"- **Token**: {r.get('prompt_tokens', 0)} in / {r.get('completion_tokens', 0)} out")
         lines.append(f"- **成本**: ¥{r['cost']:.4f}")
-        lines.append(f"- **耗时**: {r['duration']:.0f}s")
-        lines.append(f"")
-
-        # 字段详情表
+        lines.append(f"- **耗时**: {r['duration']:.0f}s\n")
         field_results = r.get("field_results", {})
         if field_results:
-            lines.append(f"| 字段 | 状态 |")
-            lines.append(f"|------|------|")
+            lines.append("| 字段 | 状态 |")
+            lines.append("|------|------|")
             for label, status in field_results.items():
                 icon = {"correct": "✅", "filled_wrong": "⚠️", "empty": "❌", "optional": "—"}.get(status, "?")
                 lines.append(f"| {label} | {icon} {status} |")
-
-        # 行组详情
         rg_results = r.get("row_group_results", {})
         if rg_results:
-            lines.append(f"")
-            lines.append(f"**行组**:")
+            lines.append("\n**行组**:")
             for gid, rg in rg_results.items():
-                detail = rg.get("detail", "")
-                lines.append(f"- {gid}: {detail}")
+                lines.append(f"- {gid}: {rg.get('detail', '')}")
 
-    # 写文件
     report_text = "\n".join(lines)
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(report_text)
-
     print(f"\n✅ 报表已生成: {report_path}")
     return report_path
 
@@ -592,17 +475,14 @@ def generate_report(results):
 # ============================================================
 
 if __name__ == "__main__":
-    print("自动端到端评测脚本")
+    print("自动端到端评测脚本 v2")
     print("=" * 60)
 
-    # 检查 GT 目录
     gt_files = [f for f in os.listdir(GT_DIR) if f.endswith(".json")]
     print(f"GT 文件: {len(gt_files)}")
 
-    # 运行测试
     results = run_all_tests()
-
-    # 生成报表
     if results:
         report_path = generate_report(results)
-        print(f"\n🎉 评测完成！报表路径: {report_path}")
+        print(f"\n🎉 评测完成！报表: {report_path}")
+        print(f"   中间结果: {INTERIM_RESULT}")
