@@ -2143,43 +2143,37 @@ def _fix_merged_cells(doc):
     
     python-docx 在读取 docx 时，合并的单元格会生成多个 cell 对象共享同一个 XML 元素。
     保存时所有 cell 都会被写入，导致内容重复。此函数清理重复的 cell XML 元素。
+    
+    注意：避免使用 row.cells（会触发 vMerge 递归导致 no tc element 错误），
+    改为直接从 XML 层操作 tc 元素。
     """
     ns = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
     
     for table in doc.tables:
         for row in table.rows:
-            cells = row.cells
-            if len(cells) <= 1:
-                continue
-            
-            # 按 XML 元素去重：找出共享同一元素的 cell 组
-            element_to_cells = {}
-            for ci, cell in enumerate(cells):
-                eid = id(cell._tc)
-                if eid not in element_to_cells:
-                    element_to_cells[eid] = []
-                element_to_cells[eid].append(ci)
-            
-            # 只处理有共享元素的行（即有合并单元格的行）
-            has_shared = any(len(indices) > 1 for indices in element_to_cells.values())
-            if not has_shared:
-                continue
-            
-            # 构建新的 tr 子节点列表：只保留每组合并格的第一个 cell
             tr = row._tr
-            existing_children = list(tr)
-            kept_tcs = set()
-            for eid, indices in element_to_cells.items():
-                # 只保留该合并组的第一个 visible cell
-                kept_tcs.add(cells[indices[0]]._tc)
+            tcs = tr.findall(qn("w:tc"))
+            if len(tcs) <= 1:
+                continue
             
-            # 移除重复的 tc 元素
+            # 直接按 tc XML 元素 id 去重（避免触发 row.cells 的 vMerge 迭代）
+            seen_ids = set()
+            unique_tcs = []
+            for tc in tcs:
+                eid = id(tc)
+                if eid not in seen_ids:
+                    seen_ids.add(eid)
+                    unique_tcs.append(tc)
+            
+            # 无重复元素则跳过
+            if len(unique_tcs) == len(tcs):
+                continue
+            
+            # 只保留唯一的 tc 元素
+            kept_set = set(unique_tcs)
             for child in list(tr):
-                if child.tag == f'{ns}tc' and child not in kept_tcs:
+                if child.tag == f'{ns}tc' and child not in kept_set:
                     tr.remove(child)
-            
-            # 确保剩余 tc 的 gridSpan 正确（python-docx 已处理，保留即可）
-            # 对于仍有 gridSpan 的 cell，确保它的宽度正确
 
 
 
