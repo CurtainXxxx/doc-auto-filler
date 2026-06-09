@@ -2181,9 +2181,9 @@ function exitCoFill() {
   prefillMode = false;
   prefillData = null;
   document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
-  // 恢复预览
+  // 恢复预览（复用 renderDocPreview 以保持完整结构和样式）
   if (docPreviewHtml) {
-    document.getElementById('previewBody').innerHTML = docPreviewHtml;
+    renderDocPreview();
   }
 }
 
