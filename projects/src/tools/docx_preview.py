@@ -368,14 +368,26 @@ def _render_colgroup(table) -> str:
     if not cols:
         return ""
     col_tags = []
+    total_width = 0
+    width_list = []
     for col in cols:
         w = col.get(qn('w:w'))
         if w:
-            # EMU → pt (1pt = 12700 EMU)
             width_pt = int(w) / 12700
-            col_tags.append(f'<col style="width:{width_pt:.1f}pt">')
+            width_list.append(width_pt)
+            total_width += width_pt
         else:
-            col_tags.append('<col>')
+            width_list.append(0)
+
+    if total_width > 0:
+        for w in width_list:
+            if w > 10:  # 大于 10pt 的宽度保留比例
+                pct = max(w / total_width * 100, 1)
+                col_tags.append(f'<col style="width:{pct:.1f}%">')
+            else:
+                col_tags.append('<col>')  # 极小宽度不设置，让浏览器自动分配
+    else:
+        col_tags = ['<col>'] * len(width_list)
     return '<colgroup>' + ''.join(col_tags) + '</colgroup>\n'
 
 
