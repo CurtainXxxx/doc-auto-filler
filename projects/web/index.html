@@ -417,7 +417,7 @@ html, body {
 /* ── Document Table (mimic Word table) ── */
 .doc-table {
   width: 100%;
-  table-layout: auto;
+  table-layout: fixed;
   border-collapse: collapse;
   margin-bottom: 12px;
   font-size: 9pt;
@@ -2178,28 +2178,12 @@ function cofillSkipKnowledge() {
 
 function exitCoFill() {
   document.querySelector('.app').classList.remove('cofill-mode');
-
-  // 将协同模式中确认的字段值同步到 fieldData
-  if (prefillData && prefillData.fields) {
-    for (const f of prefillData.fields) {
-      if (f.value && f.value.trim() && f.field_id) {
-        fieldData[f.field_id] = f.value;
-      }
-    }
-  }
-
   prefillMode = false;
   prefillData = null;
   document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
-
+  // 恢复预览
   if (docPreviewHtml) {
-    renderDocPreview();
-    // 将 fieldData 中的值重新画到重建的 DOM 上
-    for (const [fid, val] of Object.entries(fieldData)) {
-      if (val && val.trim()) {
-        updateCellInPreview(fid, val);
-      }
-    }
+    document.getElementById('previewBody').innerHTML = docPreviewHtml;
   }
 }
 
