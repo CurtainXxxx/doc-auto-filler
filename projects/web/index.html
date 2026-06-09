@@ -1742,10 +1742,11 @@ async function fetchDocPreview(templatePath) {
     const result = await resp.json();
     console.log('fetchDocPreview: result success=', result.success, 'html_len=', (result.html||'').length);
     if (result.success) {
-      docPreviewHtml = result.html;
       fieldMap = result.field_map || {};
       labelToFields = result.label_to_fields || {};
+      // First render, then save the COMPLETE preview HTML (with .doc-page wrapper)
       renderDocPreview();
+      docPreviewHtml = document.getElementById('previewBody').innerHTML;
     }
   } catch (e) {
     console.error('fetchDocPreview failed:', e);
@@ -2181,9 +2182,9 @@ function exitCoFill() {
   prefillMode = false;
   prefillData = null;
   document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
-  // 恢复预览（复用 renderDocPreview 以保持完整结构和样式）
+  // 恢复预览（直接放完整保存的 HTML（已包含 .doc-page 包装和样式）
   if (docPreviewHtml) {
-    renderDocPreview();
+    document.getElementById('previewBody').innerHTML = docPreviewHtml;
   }
 }
 
