@@ -402,7 +402,6 @@ html, body {
   min-height: 540px;
   padding: 36px 44px;
   font-size: 10.5pt;
-  overflow-x: auto;
   line-height: 1.8;
   color: #1a1a1a;
 }
@@ -417,10 +416,8 @@ html, body {
 
 /* ── Document Table (mimic Word table) ── */
 .doc-table {
-  width: auto !important;
-  min-width: 100%;
-  max-width: none;
-  table-layout: auto;
+  width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   margin-bottom: 12px;
   font-size: 9pt;
@@ -429,8 +426,8 @@ html, body {
 .doc-table td {
   border: 1px solid #333;
   padding: 3px 6px;
-  vertical-align: top;
-  white-space: normal;
+  vertical-align: middle;
+  word-break: break-all;
 }
 .doc-table td.label {
   background: #f8f8f8;
@@ -1410,43 +1407,45 @@ function parseFieldsLines(fieldsText) {
   }
 }
 
-// ── Refresh preview from a generated docx (replace entire preview with generated HTML) ──
+// ── Refresh preview from a generated docx (update cell values in existing preview) ──
 async function refreshPreviewFromGeneratedDoc(localPath) {
-  // 用生成的 docx 的完整 HTML 替换整个预览，而不是逐个单元格打补丁。
-  // 生成的文档可能有不同的表格结构（合并单元格、列宽等），逐个打补丁会导致布局崩溃。
+  // 从生成的 docx 获取填写后的数据，更新现有预览中的单元格值
+  // 不替换整个 HTML，保留 editable 结构和 data-field-id 属性
   try {
     const res = await fetch('/generated-preview?local_path=' + encodeURIComponent(localPath));
     const data = await res.json();
-    if (!data.success) return;
-    if (!data.html || typeof data.html !== 'string' || !data.html.trim()) {
-      console.warn('[preview] generated preview has no html, skipping');
-      return;
-    }
-    // 用完整生成 HTML 替换预览
-    const body = document.getElementById('previewBody');
-    if (!body) return;
-    const html = `<div class="doc-page">${data.html}</div>`;
-    body.innerHTML = html;
-    // 同步更新协同模式容器（如果可见）
-    const cofillContainer = document.getElementById('cofillDocContainer');
-    if (cofillContainer) cofillContainer.innerHTML = html;
-    previewRendered = true;
-    // 更新 fieldMap 中的 existing_value（用于进度条显示）
-    if (data.field_map) {
-      for (const [fid, info] of Object.entries(data.field_map)) {
-        if (fieldMap[fid]) {
-          fieldMap[fid].existing_value = info.existing_value || '';
+    if (data.success) {
+      // 使用 field_map 中的 existing_value 精确更新每个已填单元格
+      if (data.field_map) {
+        for (const [fieldId, info] of Object.entries(data.field_map)) {
+          const existingValue = info.existing_value;
+          if (existingValue && String(existingValue).trim()) {
+            // 查找当前预览中的对应元素并更新
+            const els = document.querySelectorAll('[data-field-id="' + CSS.escape(fieldId) + '"]');
+            for (const el of els) {
+              if (el.classList.contains('cell-value')) {
+                el.textContent = existingValue;
+                el.classList.add('filled');
+                el.classList.remove('empty');
+              } else if (el.classList.contains('editable')) {
+                el.textContent = existingValue;
+                el.classList.remove('empty');
+                el.classList.add('filled');
+              }
+            }
+          }
+        }
+        // 注意：填充后文档的 field_map 可能不完整（已填值的单元格不再被识别为可填字段），
+        // 因此不能直接用 Object.assign 覆盖 fieldMap，只更新已有条目的 existing_value
+        for (const [fid, info] of Object.entries(data.field_map)) {
+          if (fieldMap[fid]) {
+            fieldMap[fid].existing_value = info.existing_value || '';
+          }
         }
       }
-      // 更新 fieldData
-      for (const [fid, info] of Object.entries(data.field_map)) {
-        if (info.existing_value && String(info.existing_value).trim()) {
-          fieldData[fid] = String(info.existing_value);
-        }
-      }
+      // label_to_fields 同样不覆盖，保留原始模板的完整映射
+      console.log('[preview] refreshPreviewFromGeneratedDoc: updated field values from generated doc');
     }
-    refreshProgressBar();
-    console.log('[preview] replaced preview with generated HTML, length:', data.html.length);
   } catch(e) {
     console.warn('[preview] refreshPreviewFromGeneratedDoc failed:', e);
   }
@@ -1743,11 +1742,10 @@ async function fetchDocPreview(templatePath) {
     const result = await resp.json();
     console.log('fetchDocPreview: result success=', result.success, 'html_len=', (result.html||'').length);
     if (result.success) {
+      docPreviewHtml = result.html;
       fieldMap = result.field_map || {};
       labelToFields = result.label_to_fields || {};
-      // First render, then save the COMPLETE preview HTML (with .doc-page wrapper)
       renderDocPreview();
-      docPreviewHtml = document.getElementById('previewBody').innerHTML;
     }
   } catch (e) {
     console.error('fetchDocPreview failed:', e);
@@ -2183,7 +2181,7 @@ function exitCoFill() {
   prefillMode = false;
   prefillData = null;
   document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
-  // 恢复预览（直接放完整保存的 HTML（已包含 .doc-page 包装和样式）
+  // 恢复预览
   if (docPreviewHtml) {
     document.getElementById('previewBody').innerHTML = docPreviewHtml;
   }
