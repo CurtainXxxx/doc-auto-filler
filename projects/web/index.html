@@ -84,6 +84,22 @@ html, body {
   width: 5px; height: 5px; border-radius: 50%;
   background: var(--success);
 }
+.chat-header .new-chat-btn {
+  padding: 6px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.chat-header .new-chat-btn:hover {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
 
 .steps-bar {
   display: flex;
@@ -960,6 +976,7 @@ html, body {
         <h2>教务文档生成</h2>
         <p>自动填写工具</p>
       </div>
+      <button id="newChatBtn" title="新建对话" onclick="startNewChat()">＋ 新对话</button>
     </div>
 
     <div class="steps-bar" id="stepsBar">
@@ -1080,8 +1097,14 @@ html, body {
 
 <script>
 // ── State ──
-// 每次页面加载生成新会话 ID，防止旧文件路径泄漏到新对话
-const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
+// 会话 ID 持久化到 localStorage，刷新/重开页面后复用同一会话
+// 用户可通过"新建对话"按钮清除旧会话
+const STORAGE_KEY = 'edu_form_session_id';
+let sessionId = localStorage.getItem(STORAGE_KEY);
+if (!sessionId) {
+    sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
+    localStorage.setItem(STORAGE_KEY, sessionId);
+}
 let isStreaming = false;
 let currentDownloadUrl = '';
 let currentTemplate = '';
@@ -1125,6 +1148,28 @@ if (!BASE_URL || !API_URL) {
 function autoResize(ta) {
   ta.style.height = 'auto';
   ta.style.height = Math.min(ta.scrollHeight, 100) + 'px';
+}
+
+// ── New Chat ──
+function startNewChat() {
+  if (isStreaming) { alert('请等待当前对话完成后再新建对话。'); return; }
+  if (!confirm('确定要开始新对话吗？当前对话记录将被清除。')) return;
+  // Clear session from localStorage
+  localStorage.removeItem('chat_session_id');
+  // Clear chat messages
+  const container = document.getElementById('chatMessages');
+  container.innerHTML = '';
+  // Clear file list
+  uploadedFiles = [];
+  const fileList = document.getElementById('fileList');
+  if (fileList) fileList.innerHTML = '';
+  const fileCount = document.getElementById('fileCount');
+  if (fileCount) fileCount.textContent = '0';
+  // Reset session
+  sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
+  localStorage.setItem('chat_session_id', sessionId);
+  // Show welcome message
+  addMessage('assistant', '已开始新对话。请上传教务模板或知识文件开始使用。');
 }
 
 // ── Send Message ──
