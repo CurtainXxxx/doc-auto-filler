@@ -51,6 +51,38 @@ if os.path.exists(target):
         print("[patch] loop_trace.py already patched, skipping")
 PATCH_EOF
 
+# patch: langchain 兼容 shim（沙箱重置后重建）
+python3 << 'SHIM_EOF'
+import os, sys
+
+SHIM_DIRS = {
+    "/usr/local/lib/python3.12/dist-packages/langchain/callbacks": {
+        "__init__.py": "from langchain_core.callbacks import (\n    BaseCallbackManager, CallbackManager, CallbackManagerForChainRun,\n    CallbackManagerForLLMRun, CallbackManagerForToolRun, Callbacks,\n    BaseCallbackHandler, AsyncCallbackHandler, dispatch_custom_event,\n)\n__all__ = ['BaseCallbackManager','CallbackManager','CallbackManagerForChainRun',\n    'CallbackManagerForLLMRun','CallbackManagerForToolRun','Callbacks',\n    'BaseCallbackHandler','AsyncCallbackHandler','dispatch_custom_event']\n",
+        "base.py": "from langchain_core.callbacks import (\n    BaseCallbackHandler, AsyncCallbackHandler, BaseCallbackManager,\n    CallbackManager, CallbackManagerForChainRun, CallbackManagerForLLMRun,\n    CallbackManagerForToolRun, Callbacks, dispatch_custom_event,\n)\n__all__ = ['BaseCallbackHandler','AsyncCallbackHandler','BaseCallbackManager',\n    'CallbackManager','CallbackManagerForChainRun','CallbackManagerForLLMRun',\n    'CallbackManagerForToolRun','Callbacks','dispatch_custom_event']\n",
+    },
+    "/usr/local/lib/python3.12/dist-packages/langchain/schema": {
+        "__init__.py": "from langchain_core.agents import AgentFinish, AgentAction\nfrom langchain_core.outputs import LLMResult\nfrom langchain_core.messages import (\n    BaseMessage, HumanMessage, AIMessage, SystemMessage, FunctionMessage, ToolMessage, ChatMessage,\n)\nfrom langchain_core.documents import Document\nfrom langchain_core.outputs import Generation, ChatGeneration\nfrom langchain_core.language_models.llms import BaseLLM\nfrom langchain_core.language_models.chat_models import BaseChatModel\n__all__ = ['AgentFinish','AgentAction','LLMResult',\n    'BaseMessage','HumanMessage','AIMessage','SystemMessage',\n    'FunctionMessage','ToolMessage','ChatMessage','Document',\n    'Generation','ChatGeneration','BaseLLM','BaseChatModel']\n",
+    },
+}
+
+for d, files in SHIM_DIRS.items():
+    os.makedirs(d, exist_ok=True)
+    for name, content in files.items():
+        path = os.path.join(d, name)
+        if not os.path.isfile(path):
+            with open(path, 'w') as f:
+                f.write(content)
+            print(f"[shim] created {path}")
+
+try:
+    from langchain.callbacks.base import BaseCallbackHandler
+    from langchain.schema import AgentFinish
+    print("[shim] langchain shims verified OK")
+except ImportError as e:
+    print(f"[shim] ERROR: {e}")
+    sys.exit(1)
+SHIM_EOF
+
 echo "[coze-preview-run] Starting FastAPI server on port $PORT..."
 
 exec python src/main.py -m http -p "$PORT"
