@@ -592,11 +592,6 @@ async def openai_chat_completions(request: Request):
 
     try:
         payload = await request.json()
-        # 将前端 session_id 映射为 thread_id，保证页面刷新后对话记忆不丢失
-        session_id = payload.get("session_id")
-        if session_id:
-            ctx.run_id = session_id
-            logger.info(f"Mapped session_id to thread_id: {session_id}")
         response = await openai_handler.handle(payload, ctx)
         if isinstance(response, StreamingResponse):
             return StreamingResponse(
@@ -801,9 +796,6 @@ async def template_preview(path: str = ""):
         "评价报告": "2023-2024-2《xxx》 岭南师范学院专业课程目标达成度评价报告模板.docx",
         "试卷分析": "2023-2024-2《xxx》 试卷分析模板.docx",
         "关联矩阵": "2023-2024-2《xxx》岭南师范学院考题与课程目标及毕业要求关联矩阵表模板.docx",
-        "教材建设申报书": "教材建设申报书.docx",
-        "考场记录表": "考场记录表.docx",
-        "教务数据申请": "教务数据申请表.docx",
     }
     if path in template_map:
         full_path = os.path.join(workspace, "assets", template_map[path])
@@ -830,35 +822,19 @@ async def template_preview(path: str = ""):
 
 @app.get("/generated-preview")
 async def generated_preview(local_path: str = ""):
-    """将生成的 docx 文件转为 HTML 预览（含填写后的内容），支持本地路径和远程 S3 URL"""
+    """将生成的 docx 文件转为 HTML 预览（含填写后的内容）"""
     if not local_path:
         return JSONResponse(content={"success": False, "message": "缺少 local_path 参数"})
 
-    # 如果是远程 URL（对象存储），先下载到 /tmp
-    if local_path.startswith("http://") or local_path.startswith("https://"):
-        import httpx
-        import tempfile
-        try:
-            async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
-                resp = await client.get(local_path)
-                resp.raise_for_status()
-            tmp_fd, tmp_path = tempfile.mkstemp(suffix=".docx")
-            os.close(tmp_fd)
-            with open(tmp_path, "wb") as f:
-                f.write(resp.content)
-            local_path = tmp_path
-        except Exception as e:
-            return JSONResponse(content={"success": False, "message": f"下载远程文件失败: {e}"})
-    else:
-        # 安全校验路径
-        safe_local_path = _safe_path(local_path)
-        if not os.path.exists(safe_local_path):
-            return JSONResponse(content={"success": False, "message": f"文件不存在: {local_path}"})
-        local_path = safe_local_path
+    # 安全校验路径
+    safe_local_path = _safe_path(local_path)
+
+    if not os.path.exists(safe_local_path):
+        return JSONResponse(content={"success": False, "message": f"文件不存在: {local_path}"})
 
     try:
         from tools.docx_preview import docx_to_html
-        result = docx_to_html(local_path)
+        result = docx_to_html(safe_local_path)
         return JSONResponse(content={
             "success": True,
             "html": result["html"],
