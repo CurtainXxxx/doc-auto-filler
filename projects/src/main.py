@@ -1,3 +1,15 @@
+"""
+智能教务文档填写系统 — Web 服务入口 (FastAPI)
+
+职责：
+  1. 文件上传（模板 / 知识文件 / 旧报告）
+  2. 通过 /v1/chat/completions 暴露 LLM Agent 接口（流式 + 非流式）
+  3. 文档下载与预览
+  4. Agent 会话管理 + PostgreSQL Checkpointer
+
+端口：5000（强制 0.0.0.0）
+前端：web/index.html（单文件 SPA，挂载于 /web/）
+"""
 import argparse
 import asyncio
 import json
@@ -620,7 +632,12 @@ async def health_check():
 
 @app.post("/upload")
 async def upload_file(files: list[UploadFile] = File(...)):
-    """接收前端上传的文件（支持单个或多个），解析文本内容后返回"""
+    """上传知识文件（txt/csv/docx/pdf/图片），提取文本后返回给前端和Agent。
+
+    支持单文件和多文件上传。
+    文件大小上限 10MB。
+    提取的文本缓存到临时文件，供后续 prefill 调用使用。
+    """
     import tempfile
     from tools.knowledge_tool import extract_text_from_upload
 
@@ -680,7 +697,14 @@ async def upload_file(files: list[UploadFile] = File(...)):
 
 @app.post("/upload-template")
 async def upload_template_file(file: UploadFile = File(...)):
-    """接收前端上传的docx模板文件，保存并提取文本供Agent分析"""
+    """上传用户自定义的 docx 模板，替换内置模板进行填充。
+
+    处理流程：
+    1. 保存到 assets/uploads/ 目录
+    2. 调用 template_analyzer 解析字段结构
+    3. 调用 old_report_extractor 反向提取可继承数据
+    4. 返回字段清单 + 预填建议
+    """
     import tempfile
     from docx import Document
 
@@ -848,7 +872,12 @@ async def generated_preview(local_path: str = ""):
 
 @app.get(path="/download-docx")
 async def http_download_docx(file_path: str = ""):
-    """代理下载 docx 文件（支持本地路径和远程URL）"""
+    """代理下载 docx 文件，统一处理本地路径和远程对象存储 URL。
+
+    两种模式：
+    - 远程 URL（http/https）：下载到 /tmp 后以 FileResponse 返回
+    - 本地路径：直接通过 FileResponse 流式返回（含路径注入安全校验）
+    """
     if not file_path:
         return JSONResponse(content={"success": False, "message": "缺少 file_path"})
 

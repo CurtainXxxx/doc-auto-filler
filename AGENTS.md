@@ -199,3 +199,30 @@ START → Router → (条件路由) → knowledge_extraction / filling / generat
 - 预览端口固定 5000，监听 `0.0.0.0`
 - 禁止使用 9000 端口
 - Node.js 项目仅允许 `pnpm`
+
+## 代码注释规范（2026-06-10）
+
+所有核心 Python 文件已按要求添加必要注释：
+
+| 文件 | 注释状态 | 说明 |
+|------|----------|------|
+| `src/main.py` | ✅ 增强 | 文件头 + 各 API 端点 docstring |
+| `src/agents/agent.py` | ✅ 已有 | 模块 docstring + 函数注释完整 |
+| `src/tools/edu_report_tool.py` | ✅ 已有+审查 | 各填充函数 docstring + 内联注释 |
+| `src/tools/template_analyzer.py` | ✅ 已有+审查 | 5 层扫描算法各阶段均有注释 |
+| `src/tools/form_filling_state.py` | ✅ 已有 | 状态机各方法参数/返回已标注 |
+| `src/tools/prefill_tool.py` | ✅ 已有 | AI 预填流程注释完整 |
+| `src/tools/knowledge_tool.py` | ✅ 已有 | 文件解析 + 规则提取注释完整 |
+| `src/tools/docx_validator.py` | ✅ 已有 | 校验管线各步骤均有 docstring |
+| `src/tools/docx_upload.py` | ✅ 已有 | S3 上传 + 本地保存注释完整 |
+| `src/tools/docx_preview.py` | ✅ 已有 | HTML 转换 + field_map 注释 |
+| `src/tools/error_handler.py` | ✅ 已有 | 装饰器 + 日志配置注释完整 |
+| `src/tools/old_report_extractor.py` | ✅ 已有 | 旧报告提取 + 预填注释完整 |
+| `src/storage/memory/memory_saver.py` | ✅ 增强 | 模块 docstring + 降级策略注释 |
+| `src/storage/database/db.py` | ✅ 增强 | 引擎创建 + 重试机制注释 |
+
+注释原则：
+- 每个 `.py` 文件顶部有模块级 docstring 说明职责
+- 每个公开/核心函数有 Args/Returns docstring
+- 复杂逻辑（字段匹配、行组填充、vMerge 修复）有决策说明
+- 已知 Bug 的修复处标注了根因和修复策略
