@@ -1,0 +1,70 @@
+{
+  "results": [
+    {
+      "template": "缓考申请单",
+      "difficulty": "简单",
+      "knowledge_file": "缓考申请单_【简单】.txt",
+      "total_fields": 15,
+      "optional_count": 3,
+      "status": "partial",
+      "error": null,
+      "fill_rate": 0.0,
+      "accuracy": 0.0,
+      "row_group_accuracy": 0.0,
+      "prompt_tokens": 8442,
+      "completion_tokens": 2814,
+      "cost": 0.01407,
+      "duration": 60.0,
+      "details": {},
+      "agent_response_length": 5629,
+      "note": "docx 未下载成功"
+    },
+    {
+      "template": "缓考申请单",
+      "difficulty": "中等",
+      "knowledge_file": "缓考申请单_【中等】.txt",
+      "total_fields": 15,
+      "optional_count": 3,
+      "status": "completed",
+      "error": null,
+      "fill_rate": 100.0,
+      "accuracy": 8.3,
+      "row_group_accuracy": 0.0,
+      "prompt_tokens": 10437,
+      "completion_tokens": 3479,
+      "cost": 0.017395,
+      "duration": 84.0,
+      "details": {},
+      "agent_response_length": 6958,
+      "field_results": {
+        "姓名": "filled_wrong",
+        "学号": "filled_wrong",
+        "所在院系": "filled_wrong",
+        "电话": "filled_wrong",
+        "病假/活动/竞赛起止日期": "filled_wrong",
+        "病因": "filled_wrong",
+        "交流院校": "optional",
+        "活动/竞赛名称": "optional",
+        "申请理由": "correct",
+        "学生签名": "filled_wrong",
+        "学生签名-日期": "filled_wrong",
+        "班主任意见-日期": "filled_wrong",
+        "教学秘书意见-日期": "filled_wrong",
+        "教学院长意见-日期": "filled_wrong",
+        "注": "optional"
+      },
+      "row_group_results": {
+        "T0_G0": {
+          "matched": 0,
+          "total": 3,
+          "detail": "行1: ❌ (CS2001|数据结构|计算机科学与技术学院|王明|4|2025年1月10日14); 行2: ❌ (CS3002|操作系统|计算机科学与技术学院|李华|3|2025年1月15日09); "
+        }
+      },
+      "non_optional_fields": 12,
+      "correct_count": 1,
+      "filled_count": 12
+    }
+  ],
+  "completed": 2,
+  "total": 21
+}

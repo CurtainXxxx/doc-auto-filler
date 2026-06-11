@@ -226,3 +226,30 @@ START → Router → (条件路由) → knowledge_extraction / filling / generat
 - 每个公开/核心函数有 Args/Returns docstring
 - 复杂逻辑（字段匹配、行组填充、vMerge 修复）有决策说明
 - 已知 Bug 的修复处标注了根因和修复策略
+
+## 重构记录（2026-06-11）
+
+### edu_report_tool.py 解耦拆分
+
+将 2233 行单文件拆分为 `src/tools/filling/` 子模块（10 个文件）：
+
+| 文件 | 行数 | 职责 |
+|------|------|------|
+| `edu_report_tool.py` | 599 | 仅保留 @tool 函数 + FormFillingState 桥接 |
+| `filling/base.py` | 289 | 底层 XML 操作（单元格、行、vMerge） |
+| `filling/token_style.py` | 318 | 词元级样式继承 v2（run 定位 + 3 模式策略） |
+| `filling/colon_filler.py` | 190 | 冒号模式 + 签名/日期填充 |
+| `filling/checkbox_filler.py` | 216 | 勾选框检测（两遍扫描：选项词 + □N.） |
+| `filling/paragraph_filler.py` | 59 | 段落下划线字段填充 |
+| `filling/row_group_filler.py` | 164 | 行组（T0_G0）填充 + multi_col |
+| `filling/data_expander.py` | 189 | 通用模板数据预处理 |
+| `filling/builtin_expander.py` | 241 | 内置模板数据预处理（考勤/分数段） |
+| `filling/doc_builder.py` | 153 | 生成编排（build_report_docx / fill_custom_template） |
+| `filling/postprocess.py` | 55 | 合并单元格修复（_fix_merged_cells） |
+
+**验证结果**：
+- 10 个新文件独立导入 ✅
+- edu_report_tool.py 从 2233→599 行 ✅
+- agent.py 全链路 _load_tools() 16 工具 ✅
+- 重复定义（_get_unique_cells）已消除 ✅
+- 端到端冒烟测试通过（缓考申请单、教材建设申报书）
