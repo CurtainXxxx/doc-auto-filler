@@ -8,7 +8,7 @@
     "thinking": "disabled"
   },
   "external_llm": {
-    "api_key": "sk-928ac47255ca4a71950a35c0b43d0e66",
+    "api_key": "YOUR_API_KEY_HERE",
     "base_url": "https://api.deepseek.com",
     "model": "deepseek-v4-flash"
   },
