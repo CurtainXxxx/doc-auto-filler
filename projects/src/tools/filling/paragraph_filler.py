@@ -12,7 +12,7 @@
 """
 
 import re
-from typing import List, Dict, Any
+from typing import List, Any
 from docx.oxml.ns import qn
 from tools.filling.base import get_first_run_rpr
 from tools.docx_validator import sanitize_fill_text
@@ -31,10 +31,6 @@ def fill_paragraph_fields(doc, paragraph_fields, data):
 
     文字下划线模式：字段将从 run 文本中按 ____ 出现顺序逐个替换。
     """
-    # 跟踪每个段落每个 run 中已替换的 ____ 个数（文字下划线模式）
-    # key: (p_idx, run_idx), value: count of already replaced underscores
-    _underscore_replaced: Dict[tuple, int] = {}
-
     for f in paragraph_fields:
         label = f["label"]
         if label not in data:
@@ -75,24 +71,18 @@ def fill_paragraph_fields(doc, paragraph_fields, data):
             continue
 
         # ── 文字下划线模式 ____+（ASCII 下划线，无 Word 格式） ──
-        # 按 ____ 在 run 内出现的顺序逐个替换
+        # 处理逻辑：因前一个字段替换后会改变 run.text，
+        # 每次只替换当前 run.text 中第一个 ____+ 即可。
+        # 字段处理顺序与 ____ 在文本中的出现顺序一致，
+        # 因此逐个替换第一个匹配就是正确的。
         for run in runs_to_check:
             if '____' not in run.text:
                 continue
-            key = (p_idx, run._index if hasattr(run, '_index') else id(run))
-            nth = _underscore_replaced.get(key, 0)
-            # 找到第 n 个 ____+ 并替换
-            replaced_count = 0
-            new_text = ''
-            last_end = 0
-            for m in re.finditer(r'_{4,}', run.text):
-                if replaced_count == nth:
-                    # 替换这个匹配
-                    new_text = run.text[:m.start()] + f' {sanitize_fill_text(value)} ' + run.text[m.end():]
-                    _underscore_replaced[key] = nth + 1
-                    run.text = new_text
-                    found = True
-                    break
-                replaced_count += 1
-            if found:
-                break
+            run.text = re.sub(
+                r'_{4,}',
+                f' {sanitize_fill_text(value)} ',
+                run.text,
+                count=1  # 只替换第一个匹配
+            )
+            found = True
+            break
