@@ -55,6 +55,6 @@ def fill_paragraph_fields(doc, paragraph_fields, data):
                         if val and val not in ('none',):
                             is_underline = True
 
-            if is_underline and not run.text.strip():
+            if is_underline and not run.text.strip('_ '):
                 run.text = f" {sanitize_fill_text(value)} "
                 break

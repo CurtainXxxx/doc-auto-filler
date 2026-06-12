@@ -26,6 +26,9 @@ _MAX_SIMPLE_GROUP_COLS = 15
 # 已知的标签文字黑名单（这些不是待填字段，而是表头或装饰文字）
 _LABEL_BLACKLIST = {'序号', '编号', '合计', '总计', '备注', '说明', '项', '次', '类', '号'}
 
+# 单字中文标签白名单：日期/时间/页码等常见下划线分隔符，不因长度<2被过滤
+_SINGLE_CHAR_LABEL_WHITELIST = {'年', '月', '日', '时', '分', '秒', '页'}
+
 # 选项类标签不算待填字段
 _OPTION_WORDS = {'选修', '必修', '开卷', '闭卷', '半开卷', '试题库', '试卷库', '教师组题', '是', '否',
                 '优秀', '良好', '中等', '及格', '不及格', 'A', 'B', 'C', 'D', '√', '✓', '○', '●',
@@ -321,7 +324,9 @@ def _scan_paragraph_underline_fields(doc) -> list:
                         if val and val not in ('none',):
                             is_underline = True
             
-            run_type = "blank" if (is_underline and not run.text.strip()) else "label"
+            # 下划线 run 且内容仅为下划线/空格 → 视为空白占位符
+            is_blank = is_underline and not run.text.strip('_ ')
+            run_type = "blank" if is_blank else "label"
             
             if run_type == current_type and current_count > 0:
                 current_count += 1
@@ -354,7 +359,7 @@ def _scan_paragraph_underline_fields(doc) -> list:
         # 单标签：2-20字；多标签：每个2-15字
         if len(label_groups) == 1:
             label_text = label_groups[0][0]
-            if len(label_text) < 2 or len(label_text) > 20:
+            if (len(label_text) < 2 and label_text not in _SINGLE_CHAR_LABEL_WHITELIST) or len(label_text) > 20:
                 continue
             # 过滤黑名单
             if label_text in _LABEL_BLACKLIST:
@@ -381,7 +386,7 @@ def _scan_paragraph_underline_fields(doc) -> list:
         else:
             # 多标签段落：拆分为多个独立字段
             for gi, (lbl, blank_start, blank_count) in enumerate(label_groups):
-                if len(lbl) < 2 or len(lbl) > 15:
+                if (len(lbl) < 2 and lbl not in _SINGLE_CHAR_LABEL_WHITELIST) or len(lbl) > 15:
                     continue
                 if lbl in _LABEL_BLACKLIST:
                     continue
