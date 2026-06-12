@@ -5,9 +5,13 @@
 
 支持多标签段落拆分（underline_run_start 偏移量）。
 
+支持文字下划线模式：段落中使用 ____ 字符而非 Word 下划线格式时，
+按 run 内 ____ 出现顺序逐个替换。
+
 依赖：filling.base (get_first_run_rpr)
 """
 
+import re
 from typing import List, Dict, Any
 from docx.oxml.ns import qn
 from tools.filling.base import get_first_run_rpr
@@ -24,7 +28,13 @@ def fill_paragraph_fields(doc, paragraph_fields, data):
 
     多标签段落支持：当字段有 underline_run_start 时，从指定索引开始查找下划线 run。
     每个标签组对应一段非下划线 run → 下划线 run 对，避免同一段落多条横线串位。
+
+    文字下划线模式：字段将从 run 文本中按 ____ 出现顺序逐个替换。
     """
+    # 跟踪每个段落每个 run 中已替换的 ____ 个数（文字下划线模式）
+    # key: (p_idx, run_idx), value: count of already replaced underscores
+    _underscore_replaced: Dict[tuple, int] = {}
+
     for f in paragraph_fields:
         label = f["label"]
         if label not in data:
@@ -42,6 +52,7 @@ def fill_paragraph_fields(doc, paragraph_fields, data):
         runs_to_check = para.runs[run_start:]
 
         # 找到下划线空白 run 并填入值
+        found = False
         for run in runs_to_check:
             is_underline = False
             if run.underline and run.underline not in (False, 0):
@@ -57,4 +68,31 @@ def fill_paragraph_fields(doc, paragraph_fields, data):
 
             if is_underline and not run.text.strip('_ '):
                 run.text = f" {sanitize_fill_text(value)} "
+                found = True
+                break
+
+        if found:
+            continue
+
+        # ── 文字下划线模式 ____+（ASCII 下划线，无 Word 格式） ──
+        # 按 ____ 在 run 内出现的顺序逐个替换
+        for run in runs_to_check:
+            if '____' not in run.text:
+                continue
+            key = (p_idx, run._index if hasattr(run, '_index') else id(run))
+            nth = _underscore_replaced.get(key, 0)
+            # 找到第 n 个 ____+ 并替换
+            replaced_count = 0
+            new_text = ''
+            last_end = 0
+            for m in re.finditer(r'_{4,}', run.text):
+                if replaced_count == nth:
+                    # 替换这个匹配
+                    new_text = run.text[:m.start()] + f' {sanitize_fill_text(value)} ' + run.text[m.end():]
+                    _underscore_replaced[key] = nth + 1
+                    run.text = new_text
+                    found = True
+                    break
+                replaced_count += 1
+            if found:
                 break

@@ -353,6 +353,20 @@ def _scan_paragraph_underline_fields(doc) -> list:
                     label_groups.append((label_text, groups[gi+1][1], groups[gi+1][2]))
         
         if not label_groups:
+            # ── run 级未检测到字段，尝试文本级文字下划线扫描 ──
+            # 对应模板中使用 ASCII ____ 而非 Word 下划线格式的情况
+            text_under_pairs = _scan_text_underscore_fields(para.text, para, p_idx)
+            if text_under_pairs:
+                for pair in text_under_pairs:
+                    lbl = pair["label"]
+                    if (len(lbl) < 2 and lbl not in _SINGLE_CHAR_LABEL_WHITELIST) or len(lbl) > 20:
+                        continue
+                    if lbl in _LABEL_BLACKLIST:
+                        continue
+                    normalized = lbl.replace(" ", "").replace("　", "")
+                    if lbl in _OPTION_WORDS or normalized in _OPTION_WORDS:
+                        continue
+                    fields.append(pair)
             continue
         
         # 过滤：所有标签太短或太长的不合理
@@ -409,6 +423,68 @@ def _scan_paragraph_underline_fields(doc) -> list:
                     "underline_run_start": blank_start,
                     "underline_run_count": blank_count,
                 })
+    
+    return fields
+
+
+def _scan_text_underscore_fields(text: str, para, p_idx: int) -> list:
+    """段落文本级扫描：检测连续的 ASCII 下划线 ____+ 视为空白占位符。
+    
+    适用场景：模板中使用 _ 字符而非 Word 下划线格式，如：
+        "受理编号：________________________ 受理日期：________年____月____日"
+    
+    返回 field dict 列表（与 _scan_paragraph_underline_fields 格式一致）。
+    """
+    # 按连续下划线分割
+    parts = re.split(r'(_{4,})', text)
+    if len(parts) < 2:
+        return []  # 没有下划线模式
+    
+    # 找到包含下划线的第一个 run 的索引
+    # 文字下划线段落通常只有一个 run，包含所有文本
+    target_run = None
+    target_ri = 0
+    for ri, run in enumerate(para.runs):
+        if re.search(r'_{4,}', run.text):
+            target_ri = ri
+            break
+    
+    # 遍历 parts，提取 [label, blank] 对
+    # parts 结构: ["标签", "______", "标签2", "____", ...]
+    fields = []
+    field_idx = 0
+    i = 0
+    while i < len(parts):
+        if re.match(r'_{4,}', parts[i]):
+            i += 1
+            continue
+        
+        label = parts[i].strip().rstrip('：:')  # 清理标签
+        if not label:
+            i += 1
+            continue
+        
+        # 检查后面是否有下划线
+        if i + 1 < len(parts) and re.match(r'_{4,}', parts[i + 1]):
+            fields.append({
+                "field_id": f"P{p_idx}_T{field_idx}",
+                "label": label,
+                "pattern": "paragraph_underline",
+                "table_idx": -1,
+                "row_idx": p_idx,
+                "col_idx": -1,
+                "existing_value": "",
+                "fill_mode": "paragraph_underline",
+                "description": f"请填写{label}",
+                "row_indices": [p_idx],
+                "repeat_count": 1,
+                "underline_run_start": target_ri,
+                "underline_run_count": 0,
+            })
+            field_idx += 1
+            i += 2  # 跳过 label 和 blank
+        else:
+            i += 1
     
     return fields
 
