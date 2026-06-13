@@ -102,9 +102,9 @@ def _get_cached_analysis(template_path: str) -> Optional[dict]:
 
 # ── 模板注册表 ──
 TEMPLATE_REGISTRY = {
-    "评价报告": "assets/2023-2024-2《xxx》 岭南师范学院专业课程目标达成度评价报告模板.docx",
-    "试卷分析": "assets/2023-2024-2《xxx》 试卷分析模板.docx",
-    "关联矩阵": "assets/2023-2024-2《xxx》岭南师范学院考题与课程目标及毕业要求关联矩阵表模板.docx",
+    "评价报告": "projects/assets/templates/评价报告模板.docx",
+    "试卷分析": "projects/assets/templates/试卷分析模板.docx",
+    "关联矩阵": "projects/assets/templates/关联矩阵模板.docx",
 }
 
 # 复杂行组最大列数阈值
