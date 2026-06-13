@@ -300,8 +300,18 @@ def route_from_router(state: MultiAgentState) -> str:
 
 
 def route_after_knowledge(state: MultiAgentState) -> str:
-    """知识提取完成后的路由：有事实数据才进填充，否则结束等用户补充"""
-    if _has_facts(state.get("messages", [])):
+    """知识提取完成后的路由：有事实数据或用户询问模板时进填充"""
+    messages = state.get("messages", [])
+
+    # 如果用户明确询问模板相关，直接路由到填充 Agent（它有 list_templates）
+    for m in reversed(messages):
+        if hasattr(m, 'type') and m.type == 'human':
+            content = _get_content_text(m)
+            if any(kw in content for kw in ['模板', '内置模板', '列出来', '展示', 'available', 'list']):
+                return "filling"
+            break
+
+    if _has_facts(messages):
         return "filling"
     return "__end__"
 
