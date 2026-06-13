@@ -115,19 +115,21 @@ def docx_to_html(template_path: str) -> dict:
             parts.append(_render_table(table, t_idx, cell_fields))
 
         elif tag == 'p':
-            # 检查是否是段落级下划线字段（如"教材名称______"）
-            para_field_id = None
-            p_idx = None
             # 查找段落索引
+            p_idx = None
             for pi, para in enumerate(doc.paragraphs):
                 if para._element is element:
                     p_idx = pi
                     break
             
+            # 查找该段落的所有字段（支持 P{p_idx} / P{p_idx}_G{gi} / P{p_idx}_T{fi} 三种格式）
+            para_fields = []
             if p_idx is not None:
-                pfid = f"P{p_idx}"
-                if pfid in field_map:
-                    para_field_id = pfid
+                for fid, info in field_map.items():
+                    if fid == f"P{p_idx}" or fid.startswith(f"P{p_idx}_"):
+                        para_fields.append((fid, info))
+                # 按 field_id 排序确保顺序一致
+                para_fields.sort(key=lambda x: x[0])
             
             para_text = ""
             for child in element.iter(qn('w:t')):
@@ -147,17 +149,10 @@ def docx_to_html(template_path: str) -> dict:
                 elif align == 'right':
                     style = ' style="text-align:right"'
 
-                # 如果是段落级字段，添加字段标记
-                if para_field_id:
-                    info = field_map[para_field_id]
-                    label = info["label"]
-                    # 渲染为: 标签 + [可填区域]
-                    parts.append(
-                        f'<p{style}>'
-                        f'<span class="field-label">{_escape(label)}</span>'
-                        f'<span class="field-blank" data-field-id="{para_field_id}" data-label="{_escape(label)}">'
-                        f'____________</span></p>'
-                    )
+                if para_fields:
+                    # 有段落级字段 — 在原文中把 ____ 替换为可编辑 span
+                    parts.append(_render_paragraph_with_fields(
+                        para_text, para_fields, style))
                 else:
                     parts.append(f'<p{style}>{_escape(para_text.strip())}</p>')
 
@@ -168,6 +163,51 @@ def docx_to_html(template_path: str) -> dict:
         "field_map": field_map,
         "label_to_fields": label_to_fields,
     }
+
+
+def _render_paragraph_with_fields(para_text: str, para_fields: list, style: str) -> str:
+    """将包含下划线字段的段落渲染为 HTML，把 ____ 替换为可编辑 span。
+    
+    para_fields: [(field_id, info), ...] 按 field_id 排序后的列表
+    """
+    # 策略：用正则匹配 ____+ 位置，按顺序替换为可编辑 span
+    result = para_text
+    underscore_pattern = re.compile(r'(_{4,})')
+    
+    # 找到所有下划线块
+    matches = list(underscore_pattern.finditer(result))
+    
+    if not matches:
+        # 没有下划线 — 显示原文
+        return f'<p{style}>{_escape(para_text.strip())}</p>'
+    
+    # 从后往前替换，避免索引偏移
+    for i in range(len(matches) - 1, -1, -1):
+        m = matches[i]
+        field_idx = i if i < len(para_fields) else len(para_fields) - 1
+        if field_idx < 0:
+            break
+        
+        fid, info = para_fields[field_idx]
+        label = info.get("label", "")
+        existing = info.get("existing_value", "")
+        
+        if existing and existing not in _PLACEHOLDER_TEXTS:
+            replacement = (
+                f'<span class="field-blank filled" data-field-id="{_escape(fid)}" '
+                f'data-label="{_escape(label)}" contenteditable="true">'
+                f'{_escape(existing)}</span>'
+            )
+        else:
+            replacement = (
+                f'<span class="field-blank editable" data-field-id="{_escape(fid)}" '
+                f'data-label="{_escape(label)}" contenteditable="true">'
+                f'{m.group()}</span>'
+            )
+        
+        result = result[:m.start()] + replacement + result[m.end():]
+    
+    return f'<p{style}>{result}</p>'
 
 
 def _render_table(table, t_idx, cell_fields) -> str:
