@@ -2237,11 +2237,33 @@ function cofillSkipKnowledge() {
 function exitCoFill() {
   document.querySelector('.app').classList.remove('cofill-mode');
   prefillMode = false;
-  prefillData = null;
   document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
-  // 恢复预览
+  // 保存预填数据到 fieldData，确保预览能同步
+  if (prefillData && prefillData.fields) {
+    for (const f of prefillData.fields) {
+      if (f.value && f.value.trim()) {
+        const fid = f.field_id;
+        if (fid) {
+          fieldData[fid] = f.value;
+        } else {
+          // 按 label 匹配 fieldMap
+          for (const [mapFid, info] of Object.entries(fieldMap)) {
+            if ((info.label && info.label.replace(/\s+/g, '') === f.label.replace(/\s+/g, '')) ||
+                (info.raw_label && info.raw_label.replace(/\s+/g, '') === f.label.replace(/\s+/g, ''))) {
+              fieldData[mapFid] = f.value;
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+  prefillData = null;
+  // 恢复预览并同步字段值
   if (docPreviewHtml) {
     document.getElementById('previewBody').innerHTML = docPreviewHtml;
+    // 应用已保存的 fieldData 到预览
+    refreshFieldValues();
   }
 }
 
@@ -2342,6 +2364,20 @@ function renderCoFillReview() {
   const previewContainer = document.getElementById('cofillDocContainer');
   if (docPreviewHtml) {
     previewContainer.innerHTML = docPreviewHtml;
+
+    // 同步预填值到预览：遍历 prefillData.fields，将已填值应用到预览 DOM
+    for (const f of (prefillData.fields || [])) {
+      if (f.value && f.value.trim()) {
+        // 同时保存到 fieldData，方便后续同步
+        const fid = f.field_id;
+        if (fid) {
+          fieldData[fid] = f.value;
+          updateCellInPreview(fid, f.value);
+        } else {
+          updateFieldByLabel(f.label, f.value);
+        }
+      }
+    }
   }
 
   // 更新提交按钮状态
@@ -2406,7 +2442,20 @@ function renderCoFillManual() {
 
   // 右侧预览
   const previewContainer = document.getElementById('cofillDocContainer');
-  if (docPreviewHtml) previewContainer.innerHTML = docPreviewHtml;
+  if (docPreviewHtml) {
+    previewContainer.innerHTML = docPreviewHtml;
+    // 同步已有预填值到预览
+    for (const f of fields) {
+      if (f.value && f.value.trim()) {
+        if (f.field_id) {
+          fieldData[f.field_id] = f.value;
+          updateCellInPreview(f.field_id, f.value);
+        } else {
+          updateFieldByLabel(f.label, f.value);
+        }
+      }
+    }
+  }
 
   document.getElementById('cofillSubmitBtn').disabled = true;
 }

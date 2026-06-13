@@ -107,7 +107,8 @@ projects/                     # 技术项目根目录
 8. **合并单元格处理**：`_fill_custom_template` 在 `doc.save()` 前调用 `_fix_merged_cells(doc)` 清理 python-docx 保存时展开的合并单元格副本。如遇到因合并单元格导致的内容重复，检查此函数是否正确触发。
 9. **行组（Row Group）数据支持**：`FormFillingState` 支持行组存储（`bulk_fill` 识别 `T0_G0` 等行组 key），`get_label_value_map` 返回行组数据。Agent 的 `filling_sp` 已提及行组格式，Agent 需通过 `update_form_fields` 将 `{"T0_G0": [[...], [...]]}` 传入。
 10. **langchain 兼容 shim**：2026-06-07 重建了 `langchain/callbacks` 和 `langchain/schema` 兼容 shim（指向 `langchain_classic`），解决 `StructuredTool` 启动时 ModuleNotFoundError。
-11. **部署 API Key 配置**：`agent.py` 的 `_build_llm` 增加 `config/agent_llm_config.json` 的 `external_llm` 段作为 fallback。部署环境无 `.env` 文件时，从此段读取 `api_key`/`base_url`/`model`。如需更换 API Key，直接修改 `config/agent_llm_config.json` 的 `external_llm.api_key` 后重新部署。
+12. **人机协同模式预览同步**：`renderCoFillReview()` / `exitCoFill()` / `renderCoFillManual()` 需要在渲染 `docPreviewHtml` 后调用 `updateCellInPreview` 同步 `prefillData.fields` 中的已填值到预览 DOM。`exitCoFill()` 需在清除 `prefillData` 前保存值到 `fieldData` 并重渲染后调用 `refreshFieldValues()`。
+13. **段落下划线字段预览样式**：`web/index.html` 中新增 `.field-blank`（灰底边框）和 `.field-blank.filled`（绿色背景+绿色文字）CSS 类。段落字段的 HTML span 使用 `class="field-blank editable"`（空）或 `class="field-blank filled"`（已填），通过 `data-field-id` 属性定位，由 `updateCellInPreview` 的 `editable` 分支处理。
 
 ## 源码仓库
 
@@ -253,3 +254,19 @@ START → Router → (条件路由) → knowledge_extraction / filling / generat
 - agent.py 全链路 _load_tools() 16 工具 ✅
 - 重复定义（_get_unique_cells）已消除 ✅
 - 端到端冒烟测试通过（缓考申请单、教材建设申报书）
+
+## 修复记录（2026-06-14 人机协同模式预览同步）
+
+### 问题
+人机协同（cofill）模式下右侧预览不显示已填字段值；确认生成退出协同后预览空白/格式乱。
+
+### 根因
+1. `renderCoFillReview()` 渲染 `docPreviewHtml` 后未应用 `prefillData.fields` 中的值到预览 DOM，右侧始终显示空模板
+2. `exitCoFill()` 直接 `prefillData = null` + 重新渲染空白模板，`fieldData` 中无预填数据，退出后预览空白
+3. `renderCoFillManual()` 同理未同步已有值
+
+### 修复
+- `renderCoFillReview()`：渲染预览 HTML 后，遍历 `prefillData.fields` 将已填值写入 `fieldData` 并调用 `updateCellInPreview`/`updateFieldByLabel`
+- `exitCoFill()`：清除 `prefillData` 前先遍历字段保存到 `fieldData`；重渲染后调用 `refreshFieldValues()` 恢复预览
+- `renderCoFillManual()`：同上述逻辑同步已有预填值
+- 涉及文件：`web/index.html`（3 处修改）
