@@ -433,7 +433,6 @@ html, body {
 /* ── Document Table (mimic Word table) ── */
 .doc-table {
   width: 100%;
-  table-layout: fixed;
   border-collapse: collapse;
   margin-bottom: 12px;
   font-size: 9pt;
@@ -2560,21 +2559,43 @@ async function submitPrefillReview() {
     return;
   }
 
-  // 构造 [FIELDS] 格式发送给Agent
-  let fieldsBlock = '[FIELDS]\n';
-  for (const [label, value] of Object.entries(finalData)) {
-    fieldsBlock += `${label}=${value}\n`;
-  }
-  fieldsBlock += '[/FIELDS]';
-
-  const agentMsg = `我已经审核了AI预填结果，以下是最终确认的字段值：\n\n${fieldsBlock}\n\n请根据这些信息生成文档。所有已填字段都已确认，无需再追问。`;
-
   // 退出协同模式，回到聊天界面
   exitCoFill();
 
-  // 发送给Agent
+  // 直接调用生成接口（绕过 LangGraph Agent），更稳定可靠
   appendMessage('user', '确认预填结果，生成文档');
-  await callAgent(agentMsg);
+  appendMessage('assistant', '正在生成文档...');
+
+  try {
+    const resp = await fetch('/cofill-generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        template_path: currentTemplatePath,
+        field_values: finalData
+      })
+    });
+    const result = await resp.json();
+    if (result.success) {
+      // 替换"正在生成..."消息
+      chatMessages.pop();
+      currentDownloadUrl = result.download_url;
+      const downloadMsg = `✅ 文档已生成完成！\n\n[下载链接](${result.download_url})`;
+      appendMessage('assistant', downloadMsg);
+
+      // 更新预览
+      if (result.local_path) {
+        currentDocxPath = result.local_path;
+        refreshPreviewFromGeneratedDoc(result.local_path);
+      }
+    } else {
+      chatMessages.pop();
+      appendMessage('assistant', `❌ 生成失败：${result.message}`);
+    }
+  } catch (err) {
+    chatMessages.pop();
+    appendMessage('assistant', `❌ 生成请求失败：${err.message}`);
+  }
 }
 
 async function sendPrefillToAgent() {

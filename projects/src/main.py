@@ -870,6 +870,77 @@ async def generated_preview(local_path: str = ""):
         return JSONResponse(content={"success": False, "message": f"预览生成失败: {e}"})
 
 
+@app.post("/cofill-generate")
+async def cofill_generate(request: Request):
+    """人机协同模式直接生成文档（绕过 LangGraph Agent），
+    接受已确认的 label→value 对，直接生成 docx 并返回下载链接"""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(content={"success": False, "message": "请求体必须是 JSON"})
+
+    template_path = body.get("template_path", "")
+    field_values = body.get("field_values", {})
+
+    if not template_path or not field_values:
+        return JSONResponse(content={"success": False, "message": "缺少 template_path 或 field_values"})
+
+    safe_tpl = _safe_path(template_path)
+    if not os.path.exists(safe_tpl):
+        return JSONResponse(content={"success": False, "message": f"模板文件不存在: {template_path}"})
+
+    try:
+        from tools.template_analyzer import analyze_template
+        from tools.form_filling_state import FormFillingState
+        from tools.filling.doc_builder import fill_custom_template
+        from tools.docx_upload import upload_docx
+
+        analysis = analyze_template(safe_tpl)
+        label_fields = analysis.get("label_fields", [])
+
+        # 用 label_fields 构建 field_id→value 映射
+        filled = {}
+        for lf in label_fields:
+            fid = lf.get("field_id", "")
+            label = lf.get("label", "")
+            raw_label = lf.get("raw_label", "")
+            # 按 label / raw_label 匹配用户确认的值
+            val = field_values.get(label) or field_values.get(raw_label) or ""
+            if val:
+                filled[fid] = val
+
+        # 余下的其他字段（可能不是 label_fields 里有的）
+        for key, val in field_values.items():
+            if key not in filled.values() and val:
+                filled[key] = val
+
+        # 生成文档
+        docx_bytes, _, _, _ = fill_custom_template(safe_tpl, filled)
+
+        # 上传到对象存储
+        import hashlib, os, tempfile, uuid
+        ts = uuid.uuid4().hex[:8]
+        local_path = f"/tmp/cofill_gen_{ts}.docx"
+        with open(local_path, "wb") as f:
+            f.write(docx_bytes)
+
+        upload_result = upload_docx(local_path)
+        if upload_result and upload_result.get("download_url"):
+            download_url = upload_result["download_url"]
+        else:
+            download_url = f"/download-docx?file_path={local_path}"
+
+        return JSONResponse(content={
+            "success": True,
+            "message": "文档已生成",
+            "download_url": download_url,
+            "local_path": local_path,
+        })
+    except Exception as e:
+        logger.exception("cofill-generate failed")
+        return JSONResponse(content={"success": False, "message": f"生成失败: {e}"})
+
+
 @app.get(path="/download-docx")
 async def http_download_docx(file_path: str = ""):
     """代理下载 docx 文件，统一处理本地路径和远程对象存储 URL。
