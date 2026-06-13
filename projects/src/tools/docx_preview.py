@@ -433,7 +433,11 @@ def _render_colgroup(table) -> str:
         if w:
             # EMU → pt (1pt = 12700 EMU)
             width_pt = int(w) / 12700
-            col_tags.append(f'<col style="width:{width_pt:.1f}pt">')
+            # 跳过极小宽度（<5pt），让浏览器自动分配列宽，避免 table-layout:fixed 强制压窄
+            if width_pt < 5.0:
+                col_tags.append('<col>')
+            else:
+                col_tags.append(f'<col style="width:{width_pt:.1f}pt">')
         else:
             col_tags.append('<col>')
     return '<colgroup>' + ''.join(col_tags) + '</colgroup>\n'
