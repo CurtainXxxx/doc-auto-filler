@@ -266,6 +266,14 @@ def route_from_router(state: MultiAgentState) -> str:
             else:
                 return "filling"
 
+        # 修复：即使历史有 download_url 但无 [生成完成] 标记，
+        # 若最新用户消息明确要求生成文档，仍应路由到 generation
+        if last_user_msg_idx >= 0:
+            last_msg = messages[last_user_msg_idx]
+            content = last_msg.content if hasattr(last_msg, 'content') else ""
+            if any(kw in content for kw in ['生成', '导出', '下载', '输出']):
+                return "generation"
+
         return "__end__"
 
 
@@ -280,6 +288,13 @@ def route_after_filling(state: MultiAgentState) -> str:
     """填充完成后的路由"""
     messages = state.get("messages", [])
     if _has_generation_done(messages):
+        # 检查最新用户是否明确要求生成（如人机协同确认消息）
+        for m in reversed(messages):
+            if hasattr(m, 'type') and m.type == 'human':
+                content = m.content if hasattr(m, 'content') else ""
+                if any(kw in content for kw in ['生成', '导出', '下载', '输出']):
+                    return "generation"
+                break
         return "__end__"
     return "generation"
 
