@@ -291,3 +291,23 @@ Chat 模式下填充 Agent 完成后，用户说"生成文档"后路由到填充
 - `web/index.html` `startNewChat()`: 清除 `edu_form_session_id` + 生成全新 `sessionId`
 - `web/index.html` SSE tool handler: 当 tool 事件含 `download_url` + `success: true` 时，在聊天气泡中显示下载链接
 - 涉及文件：`src/agents/agent.py`（路由检测）、`web/index.html`（sessionId + 下载链接）
+
+## 修复记录（2026-06-15 TEMPLATE_REGISTRY 路径错误）
+
+### 问题
+点击"内置模板"模式，选择模板后 `analyze_report_template` 报错：`FileNotFoundError`。
+
+### 根因
+`TEMPLATE_REGISTRY` 中的路径未随项目重构更新：
+- 旧路径：`assets/2023-2024-2《xxx》...`（相对于 workspace 根，文件名长描述）
+- 实际文件：`projects/assets/templates/评价报告模板.docx`（子目录 + 短文件名）
+
+### 修复
+`edu_report_tool.py` 中 `TEMPLATE_REGISTRY` 路径更新为正确的实际位置。
+
+### 验证
+| 模板 | 修复前 | 修复后 |
+|------|--------|--------|
+| 评价报告 | ❌ FileNotFoundError | ✅ 62 字段 |
+| 试卷分析 | ❌ FileNotFoundError | ✅ 40 字段 |
+| 关联矩阵 | ❌ FileNotFoundError | ✅ 42 字段 |
