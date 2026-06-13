@@ -164,51 +164,73 @@ _RE_KNOWLEDGE_DONE = re.compile(r'\[知识提取完成\]')
 _RE_FIELDS_BLOCK = re.compile(r'\[FIELDS\].*?\[/FIELDS\]', re.DOTALL)
 _RE_FILLING_DONE = re.compile(r'\[填充完成\]')
 
-# 匹配 [生成完成] 或 download_url + success
+# 匹配 [生成完成] 或 download_url + success（容忍 success 在 download_url 之前或之后）
 _RE_GENERATION_DONE = re.compile(r'\[生成完成\]')
-_RE_DOWNLOAD_SUCCESS = re.compile(r'"download_url".*"success"\s*:\s*true', re.DOTALL)
+_RE_DOWNLOAD_SUCCESS = re.compile(
+    r'("download_url".*"success"\s*:\s*true|"success"\s*:\s*true.*"download_url")',
+    re.DOTALL
+)
+
+
+def _get_content_text(m) -> str:
+    """统一提取消息文本：处理 str 和 list（含 tool_calls 的 AI message）两种 content 类型"""
+    if not hasattr(m, 'content'):
+        return ''
+    if isinstance(m.content, str):
+        return m.content
+    if isinstance(m.content, list):
+        # 拼接所有 text 类型的 block
+        texts = []
+        for block in m.content:
+            if isinstance(block, dict) and block.get('type') == 'text':
+                texts.append(block.get('text', ''))
+        return '\n'.join(texts)
+    return str(m.content)
 
 
 def _has_facts(messages: list) -> bool:
     """检查知识提取是否完成（正则匹配，容忍格式变化）"""
     for m in messages:
-        if hasattr(m, 'content') and isinstance(m.content, str):
-            content = m.content
-            if _RE_FACTS_BLOCK.search(content):
-                return True
-            if _RE_KNOWLEDGE_DONE.search(content):
-                return True
-            # 检查 extract_facts 工具的成功返回（fact_count > 0）
-            import re
-            if re.search(r'"fact_count"\s*:\s*[1-9]\d*', content):
-                return True
+        content = _get_content_text(m)
+        if not content:
+            continue
+        if _RE_FACTS_BLOCK.search(content):
+            return True
+        if _RE_KNOWLEDGE_DONE.search(content):
+            return True
+        # 检查 extract_facts 工具的成功返回（fact_count > 0）
+        import re
+        if re.search(r'"fact_count"\s*:\s*[1-9]\d*', content):
+            return True
     return False
 
 
 def _has_fields_filled(messages: list) -> bool:
     """检查字段填充是否完成（正则匹配，容忍格式变化）"""
     for m in messages:
-        if hasattr(m, 'content') and isinstance(m.content, str):
-            content = m.content
-            if _RE_FIELDS_BLOCK.search(content):
-                return True
-            if _RE_FILLING_DONE.search(content):
-                return True
-            # 检查 update_form_fields 工具的成功返回（progress_pct > 0）
-            if '"progress_pct"' in content and '"success": true' in content:
-                return True
+        content = _get_content_text(m)
+        if not content:
+            continue
+        if _RE_FIELDS_BLOCK.search(content):
+            return True
+        if _RE_FILLING_DONE.search(content):
+            return True
+        # 检查 update_form_fields 工具的成功返回（progress_pct > 0）
+        if '"progress_pct"' in content and '"success": true' in content:
+            return True
     return False
 
 
 def _has_generation_done(messages: list) -> bool:
     """检查文档生成是否已完成"""
     for m in messages:
-        if hasattr(m, 'content') and isinstance(m.content, str):
-            content = m.content
-            if _RE_GENERATION_DONE.search(content):
-                return True
-            if _RE_DOWNLOAD_SUCCESS.search(content):
-                return True
+        content = _get_content_text(m)
+        if not content:
+            continue
+        if _RE_GENERATION_DONE.search(content):
+            return True
+        if _RE_DOWNLOAD_SUCCESS.search(content):
+            return True
     return False
 
 

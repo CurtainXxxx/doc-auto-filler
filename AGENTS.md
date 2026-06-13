@@ -270,3 +270,24 @@ START → Router → (条件路由) → knowledge_extraction / filling / generat
 - `exitCoFill()`：清除 `prefillData` 前先遍历字段保存到 `fieldData`；重渲染后调用 `refreshFieldValues()` 恢复预览
 - `renderCoFillManual()`：同上述逻辑同步已有预填值
 - 涉及文件：`web/index.html`（3 处修改）
+
+## 修复记录（2026-06-14 路由检测 Bug 修复）
+
+### 问题
+Chat 模式下填充 Agent 完成后，用户说"生成文档"后路由到填充 Agent 而非生成 Agent，文档无法生成。
+
+### 根因
+涉及 3 个独立 bug + 1 个前端显示问题：
+
+| Bug | 文件 | 根因 | 影响 |
+|-----|------|------|------|
+| Bug 1: 正则方向 | `agent.py` _RE_DOWNLOAD_SUCCESS | `r'"download_url".*"success": true'` 要求 `download_url` 在 `success` 之前，但 `generate_form_document` 返回的 JSON 中 `"success": True` 在 `"download_url"` 之前 | `_has_generation_done` 永远无法通过 download_url 检测到生成完成 |
+| Bug 2: list content 跳过 | `agent.py` _has_\* 函数 | `isinstance(m.content, str)` 跳过含 `tool_calls` 的 AI 消息（content 为 list 类型） | 含阶段标记的中间消息被忽略 |
+| Bug 3: sessionId 持久化 | `web/index.html` startNewChat() | 只删除 `chat_session_id`，未更新 `sessionId` 变量和 `edu_form_session_id` | 所有对话共用同一 sessionId → checkpointer 历史消息累积 → 路由判断被旧消息干扰 |
+| Bug 4: 前端无下载链接 | `web/index.html` SSE tool handler | tool 事件含 `download_url` 时只刷新预览，不显示下载链接 | 生成成功但用户看不到结果 |
+
+### 修复
+- `agent.py`: 修复 `_RE_DOWNLOAD_SUCCESS` 正则支持两种 JSON 顺序；新增 `_get_content_text()` 处理 list content；`_has_facts`/`_has_fields_filled`/`_has_generation_done` 统一使用 `_get_content_text()`
+- `web/index.html` `startNewChat()`: 清除 `edu_form_session_id` + 生成全新 `sessionId`
+- `web/index.html` SSE tool handler: 当 tool 事件含 `download_url` + `success: true` 时，在聊天气泡中显示下载链接
+- 涉及文件：`src/agents/agent.py`（路由检测）、`web/index.html`（sessionId + 下载链接）

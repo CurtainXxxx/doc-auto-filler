@@ -1166,8 +1166,11 @@ function autoResize(ta) {
 function startNewChat() {
   if (isStreaming) { alert('请等待当前对话完成后再新建对话。'); return; }
   if (!confirm('确定要开始新对话吗？当前对话记录将被清除。')) return;
-  // Clear session from localStorage
+  // 生成全新 sessionId，避免历史消息累积导致路由判断错误
+  localStorage.removeItem('edu_form_session_id');
   localStorage.removeItem('chat_session_id');
+  sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
+  localStorage.setItem('edu_form_session_id', sessionId);
   // Clear chat messages
   const container = document.getElementById('chatMessages');
   container.innerHTML = '';
@@ -1388,9 +1391,21 @@ function createStreamingMessage() {
               }
               if (toolResult.local_path) {
                 currentDocxPath = toolResult.local_path;
-              }
-              if (toolResult.local_path) {
                 refreshPreviewFromGeneratedDoc(toolResult.local_path);
+              }
+              // 生成文档成功：显示下载链接
+              if (toolResult.download_url && toolResult.success) {
+                currentDownloadUrl = toolResult.download_url;
+                if (!fullText) {
+                  bubble.innerHTML = `<div style="margin:8px 0;">
+                    <strong>✅ 文档已生成！</strong><br>
+                    <a href="${toolResult.download_url}" target="_blank" style="color:#4CAF50;font-weight:bold;font-size:16px;">
+                      📥 点击下载生成的 Word 文档
+                    </a>
+                  </div>`;
+                } else {
+                  fullText += `\n\n✅ 文档已生成！\n下载链接：${toolResult.download_url}\n[生成完成]`;
+                }
               }
             } catch(e) { console.warn('[preview] tool result parse error:', e); }
             continue;
