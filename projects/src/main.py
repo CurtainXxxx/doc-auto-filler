@@ -893,7 +893,7 @@ async def cofill_generate(request: Request):
         from tools.template_analyzer import analyze_template
         from tools.form_filling_state import FormFillingState
         from tools.filling.doc_builder import fill_custom_template
-        from tools.docx_upload import upload_docx
+        from tools.docx_upload import upload_and_validate
 
         analysis = analyze_template(safe_tpl)
         label_fields = analysis.get("label_fields", [])
@@ -910,25 +910,24 @@ async def cofill_generate(request: Request):
                 filled[fid] = val
 
         # 余下的其他字段（可能不是 label_fields 里有的）
+        matched_labels = {lf.get("label", "") for lf in label_fields} | {lf.get("raw_label", "") for lf in label_fields}
         for key, val in field_values.items():
-            if key not in filled.values() and val:
+            if key not in matched_labels and val:
                 filled[key] = val
 
         # 生成文档
         docx_bytes, _, _, _ = fill_custom_template(safe_tpl, filled)
 
         # 上传到对象存储
-        import hashlib, os, tempfile, uuid
-        ts = uuid.uuid4().hex[:8]
-        local_path = f"/tmp/cofill_gen_{ts}.docx"
-        with open(local_path, "wb") as f:
-            f.write(docx_bytes)
-
-        upload_result = upload_docx(local_path)
-        if upload_result and upload_result.get("download_url"):
-            download_url = upload_result["download_url"]
-        else:
-            download_url = f"/download-docx?file_path={local_path}"
+        upload_result = upload_and_validate(
+            docx_bytes=docx_bytes,
+            name_prefix="custom_report",
+            display_name="cofill_doc",
+            template_path=safe_tpl,
+            validate=False,
+        )
+        download_url = upload_result.get("download_url", "")
+        local_path = upload_result.get("local_path", "")
 
         return JSONResponse(content={
             "success": True,

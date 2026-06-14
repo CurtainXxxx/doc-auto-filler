@@ -311,3 +311,24 @@ Chat 模式下填充 Agent 完成后，用户说"生成文档"后路由到填充
 | 评价报告 | ❌ FileNotFoundError | ✅ 62 字段 |
 | 试卷分析 | ❌ FileNotFoundError | ✅ 40 字段 |
 | 关联矩阵 | ❌ FileNotFoundError | ✅ 42 字段 |
+
+## 修复记录（2026-06-14 cofill-generate 端点返回 500）
+
+### 问题
+人机协同模式下点击"确认预填结果，生成文档"后卡在"正在生成文档..."，后端返回 HTTP 500 Internal Server Error。
+
+### 根因
+涉及两个问题：
+1. **`UnboundLocalError: cannot access local variable 'os'`**：`main.py` 第 921 行的 `import hashlib, os, tempfile, uuid` 在 `try` 块内部重新导入了 `os`，Python 将其视为函数局部变量，但第 889 行 `os.path.exists(safe_tpl)` 在局部赋值之前执行，导致 `UnboundLocalError`。
+2. **错误导入名**：`from tools.docx_upload import upload_docx` — 该函数实际名为 `upload_and_validate`，且签名不同（需要 `docx_bytes`、`name_prefix`、`display_name`、`template_path` 等参数）。
+
+### 修复
+- 移除 `try` 块内的冗余 `import os`，改为 `import hashlib, tempfile, uuid`
+- 将 `upload_docx` 改为 `upload_and_validate`，使用正确的参数调用
+- 将第二循环中的 `key not in filled.values()` 改为 `key not in matched_labels`（收集已匹配的 label/raw_label 集合）
+
+### 验证
+| 测试 | 修复前 | 修复后 |
+|------|--------|--------|
+| 25 字段完整填充 | ❌ HTTP 500 | ✅ 成功生成 + 下载链接有效 |
+| 下载链接可用性 | ❌ | ✅ HTTP 200, 20471 bytes |
