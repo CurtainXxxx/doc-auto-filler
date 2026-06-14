@@ -33,9 +33,13 @@ def fill_paragraph_fields(doc, paragraph_fields, data):
     """
     for f in paragraph_fields:
         label = f["label"]
-        if label not in data:
+        fid = f.get("field_id", "")
+        if label in data:
+            value = str(data[label])
+        elif fid in data:
+            value = str(data[fid])
+        else:
             continue
-        value = str(data[label])
 
         p_idx = f["row_idx"]
         if p_idx >= len(doc.paragraphs):

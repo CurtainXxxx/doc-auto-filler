@@ -140,12 +140,17 @@ def fill_label_fields(doc, label_fields, data):
     """
     for f in label_fields:
         label = f["label"]
-        if label not in data:
-            continue
+        fid = f.get("field_id", "")
         # 段落级字段由 paragraph_filler 单独处理
         if f.get("pattern") == "paragraph_underline":
             continue
-        value = data[label]
+        # 优先用 label 查 data，回退到 field_id
+        if label in data:
+            value = data[label]
+        elif fid in data:
+            value = data[fid]
+        else:
+            continue
         fill_mode = f.get("fill_mode", "append")
         pattern = f.get("pattern", "colon")
         existing_value = f.get("existing_value", "")

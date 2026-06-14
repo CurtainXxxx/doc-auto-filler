@@ -353,3 +353,34 @@ Chat 模式下填充 Agent 完成后，用户说"生成文档"后路由到填充
 - **模板解析**：8/8 全部正确识别字段（14~24 个/模板，含冒号字段、段落下划线字段）
 - **Cofill 生成**：8/8 通过 `/cofill-generate` 端点成功生成 docx，文件 ~36KB，下载链接有效
 - **完整 Agent 流水线**：前 2 个模板卡在分析阶段（Agent 需用户确认才能推进），属于已知路由确认限制
+
+## 修复记录（2026-06-14 field_id vs label 查找不匹配）
+
+### 问题
+`/cofill-generate` 端点生成的 docx 字段为空。`fill_label_fields` 和 `fill_paragraph_fields` 用 `label` 在 `data` 字典中查找，但 `cofill-generate` 传入的 `filled` 字典以 `field_id`（如 `T0_R0_C1`）为 key，而非 `label`（如 `申 请 人`），导致所有字段被跳过。
+
+### 根因
+- `colon_filler.py:fill_label_fields`：`if label not in data: continue` → 查不到跳过
+- `paragraph_filler.py:fill_paragraph_fields`：同一逻辑
+
+### 修复
+两个函数均增加 field_id 回退查找逻辑：
+```python
+if label in data:
+    value = data[label]
+elif fid in data:
+    value = data[fid]
+else:
+    continue
+```
+
+### 新模板全量评测（2026-06-14）
+| 指标 | 数值 |
+|------|------|
+| 总用例数 | 8 |
+| 完成 | 8 |
+| 平均填充率 | **47.6%** |
+| 总耗时 | 130s（约 2.2 分钟） |
+| 报告文件 | `eval_report_new_templates.md` |
+
+各模板详情见 `eval_report_new_templates.md`。
