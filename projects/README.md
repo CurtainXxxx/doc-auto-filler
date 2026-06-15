@@ -30,11 +30,35 @@
 uv sync
 ```
 
+### 配置 API Key
+
+使用前需要配置大模型 API Key。复制 `.env.example` 为 `.env` 并填入你的 API 信息：
+
+```bash
+cp .env.example .env
+```
+
+编辑 `.env` 文件，填入以下内容：
+
+```env
+EXTERNAL_LLM_API_KEY=sk-your-api-key-here
+EXTERNAL_LLM_BASE_URL=https://api.deepseek.com
+EXTERNAL_LLM_MODEL=deepseek-v4-flash
+```
+
+或通过环境变量传入：
+
+```bash
+export EXTERNAL_LLM_API_KEY=sk-your-api-key-here
+```
+
+> ⚠️ **注意**：未配置 API Key 时系统无法调用大模型，所有 Agent 功能将不可用。
+
 ### 启动服务
 
 ```bash
 # 启动 HTTP 服务
-bash scripts/http_run.sh -m http -p 5000
+bash scripts/http_run.sh -p 5000
 ```
 
 服务启动后访问 `http://localhost:5000` 即可使用 Web 界面。
@@ -130,11 +154,23 @@ bash scripts/http_run.sh -m http -p 5000
 
 ### 环境变量
 
+**模型配置（必填）：**
+
+| 变量 | 说明 | 示例 |
+|------|------|------|
+| `EXTERNAL_LLM_API_KEY` | 大模型 API Key（必填） | `sk-xxx` |
+| `EXTERNAL_LLM_BASE_URL` | 模型 API 地址 | `https://api.deepseek.com` |
+| `EXTERNAL_LLM_MODEL` | 模型名称 | `deepseek-v4-flash` |
+
+> 这三项可在 `.env` 文件中配置，或通过环境变量传入。
+
+**平台配置：**
+
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `COZE_WORKSPACE_PATH` | 项目根目录 | `/workspace/projects` |
-| `COZE_WORKLOAD_IDENTITY_API_KEY` | 模型 API Key | - |
-| `COZE_INTEGRATION_MODEL_BASE_URL` | 模型 API 地址 | - |
+| `COZE_WORKLOAD_IDENTITY_API_KEY` | 平台模型 API Key | - |
+| `COZE_INTEGRATION_MODEL_BASE_URL` | 平台模型 API 地址 | - |
 
 ## 安全特性
 
