@@ -99,8 +99,3 @@ bash projects/scripts/http_run.sh -p 5000
 ├── AGENTS.md                 # 项目记忆与修复记录
 └── eval_report_20260609_181045.md
 ```
-
-## 获奖
-
-2026 年广东省大学生计算机设计大赛  
-AI 智能体协作挑战赛（本科组）参赛作品
