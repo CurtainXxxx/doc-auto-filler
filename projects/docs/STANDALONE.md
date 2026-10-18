@@ -31,6 +31,8 @@ Windows 也可使用 `./scripts/run.ps1 -p 5000`。
 
 模型配置统一使用 `EXTERNAL_LLM_BASE_URL`、`EXTERNAL_LLM_MODEL`、`EXTERNAL_LLM_API_KEY`，模型应支持工具调用。不从版本控制中的 JSON 读取密钥，也没有隐式平台回退。本地无鉴权服务可用非空占位密钥。
 
+DeepSeek 官方接口示例使用 `https://api.deepseek.com` 与 `deepseek-flash`。当前适配层对该官方地址显式使用非思考模式，因为通用 ChatOpenAI 消息转换不保留其工具调用所需的 `reasoning_content`；其他服务不发送此专有参数。DeepSeek 思考模式不在当前支持范围内。参见[官方工具调用说明](https://api-docs.deepseek.com/guides/tool_calls/)。
+
 ## 存储与会话
 
 生成文件默认在 `projects/data/generated/`，通过 `/download-docx` 下载。`APP_PUBLIC_URL` 可指定下载链接的公共前缀；留空时使用同源相对链接。S3 设置见 `.env.example`，支持标准 boto3 凭据链。显式选择 S3 后，上传失败会报错。
@@ -49,6 +51,7 @@ uv run pytest
 ```
 
 自动测试不调用付费模型。真实模型质量、云端 S3 与 PostgreSQL 部署仍需相应环境联调。
+已完成的 DeepSeek 单模板真实 HTTP、Agent 及浏览器验收记录见 [LIVE_TEST_REPORT.md](LIVE_TEST_REPORT.md)；它不代表所有模板或其他模型的准确率均已验证。
 
 ## 审查后的访问和运行限制
 

@@ -55,15 +55,58 @@ uv run --frozen python scripts/live_smoke.py --output-dir data/live-http-results
 - `uv run --frozen ruff check src tests scripts`：通过。
 - `node tests/check_frontend.cjs`：通过。
 
-## AI 与外部集成的实际状态
+## 首次验证时的 AI 与外部集成状态（历史记录）
 
 用户选择 DeepSeek。已创建被 Git 忽略的本地 `.env`，填好地址和模型名；检查时 API Key 尚为空，没有发起付费模型请求。
 浏览器实际打开 `/web/` 并点击“内置模板”后，页面显示缺少 `EXTERNAL_LLM_*` 配置，故没有把浏览器 AI 流程记为通过。
 
-以下项目仍**未验证**：
+首轮以下项目尚未验证；DeepSeek后续结果见下文：
 
 1. DeepSeek 真实预填、完整 Agent 对话及事实准确率：等待用户在本地填入密钥。
 2. PDF 转换与逐页视觉保真：本机未安装 LibreOffice。
 3. 真实 S3、PostgreSQL，以及未纳入本轮的任意用户模板。
 
-结论：本轮验证了真实 HTTP 下的本地人工填写和文档生成链路，并实际发现、修复了一处遗漏；没有据此宣称全部功能已验收。
+上述为密钥配置前的状态。后续用户在本地配置好密钥并授权继续，完成以下真实AI验证。
+
+## DeepSeek 实际联调与追加修复
+
+模型：`deepseek-flash`，官方地址 `https://api.deepseek.com`。未使用模型替身；仅使用仓库内的示例教务数据，不包含用户真实业务资料。密钥由用户填写在被Git忽略的 `.env`，未打印或提交。
+
+### 真实预填 → 生成 → 下载
+
+知识材料为 `assets/knowledge/教务数据申请/教务数据申请_【简单】.txt`，模板为 `assets/templates/教务数据申请表.docx`。
+真实 `/prefill` 请求耗时5.92秒，预填8/14项；申请人姓名、工资号、电话、邮箱、申请部门和日期等6项逐值与原文一致，来源为模型提取而非规则兜底；无材料依据的6项为空。
+直接使用AI返回值调用 `/cofill-generate`，HTTP下载后检查6个目标单元格原文精确一致、8个已填值存在、OOXML完整并可再次预览。
+
+### 完整 Agent 的失败与修复
+
+1. **首轮SSE失败**：DeepSeek返回400，明确要求工具调用后回传`reasoning_content`。按[官方文档](https://api-docs.deepseek.com/guides/tool_calls/)对官方DeepSeek端点显式关闭思考模式，其他服务不发送该参数；没有伪造reasoning内容。
+2. **第二轮仅填1/14项**：虽然工具和生成API返回成功，但知识Agent把路径作为正文，填充Agent提交的显示字段缺少ID，合并时空ID相互覆盖。本次未把该结果记为验收通过。
+3. **追加修复**：提供受目录边界约束、可分页的`read_knowledge_file`工具；提示词要求先读正文。`prefill_from_knowledge`支持仅传文件和模板路径，从实际模板获取全部字段ID；兼容旧清单时缺省ID逐项唯一。模型输出优先按field_id匹配，避免同名签名串值。
+4. **复测成功**：独立新会话经真实SSE依次完成知识读取、事实提取、模板分析、初始化、批量更新和生成；21.36秒完成，无SSE错误，`update_form_fields.matched_count=8`。下载Word的6个关键单元格与原文精确一致。
+5. **文档细节**：实读输出发现跨run的冒号标签会把值插到冒号前面，现按文本偏移在分隔符后插入，保留run格式和原有尾注；加入3种分段格式回归。
+
+失败及各阶段原始结果分别保存在被Git忽略的 `data/live-deepseek/agent-events.json`、`agent-events-after.json`、`agent-events-final.json`，未把失败文件覆盖成成功记录。
+
+### 实际浏览器验收
+
+修复后打开真实 `/web/`，通过输入框提交“按知识文件填写模板并生成”的请求。
+页面依次展示知识提取、填写与生成结果，显示8/14项已填，并出现可点击的Word下载链接。
+从页面实际返回的链接下载文档，额外确认：
+
+- 6个关键单元格逐值正确。
+- 缺少原文的数据用途、申请数据描述保留原占位提示；4处签名仍未填写。
+- 安全承诺、公章文字位于标签冒号之后，未插到冒号前。
+- ZIP CRC及XML可解析，页面节属性与原模板一致。
+
+浏览器结果文件为 `data/live-deepseek/教务数据申请表-DeepSeek浏览器实测.docx`；验证记录 `browser-verification.json`，现场截图 `browser-success.png`。
+完成卡片原先固定写“所有字段已填入”和“链接24小时内有效”，与实际部分填写和本地存储行为不符，现改为核对内容、留意空白和保存文档的提示。
+刷新后在同一真实会话再次请求生成并下载，比较`word/document.xml`与上一份完全相同，验证了连续对话及字段保留；证据为`browser-followup-verification.json`，更新后的界面截图为`browser-success-final.png`。模型自行描述的文件名片段不当作真实文件哈希，SHA256由验证脚本独立计算。
+
+### 最新回归结果及边界
+
+- `uv run --frozen pytest -q --disable-warnings`：**59 passed，7 warnings**。
+- `uv run --frozen ruff check src tests scripts`、`node tests/check_frontend.cjs`、源码编译和`git diff --check`通过。
+- 新增回归包含实际SDK工具往返的DeepSeek参数隔离、分页读取/目录边界、完整模板字段、缺省ID不覆盖、同名字段ID优先和冒号分隔符位置。
+
+上述通过表示此示例的真实AI、本地Agent及下载链路已验证，不是任意模板识别准确率或逐页视觉保真的证明。其他模型、实际S3/PostgreSQL、LibreOffice PDF及历史21用例评测仍未验证。

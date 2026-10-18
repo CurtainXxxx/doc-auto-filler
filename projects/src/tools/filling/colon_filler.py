@@ -11,11 +11,12 @@
 
 import copy
 import re as _re
+from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
 from tools.filling.base import get_unique_cells
 from tools.filling.base import set_tc_text, set_paragraph_text_preserve_runs, get_first_run_rpr
-from tools.filling.token_style import set_tc_text_v2
+from tools.filling.token_style import set_tc_text_v2, write_text_to_run
 
 
 _EMBEDDED_DATE_PAT = _re.compile(r"年\s*月\s*日(?:\s*(?:上午|下午|上|下))?")
@@ -87,27 +88,45 @@ def replace_embedded_date_in_tc(tc, label: str, existing_value: str, value: str)
 def append_value_to_tc_after_label(tc, label: str, value: str):
     """在标签 run 后追加一个新的 value run，保留标签 run 原有格式。
 
-    改进点：不再把标签和值合并到同一个 run，而是在标签 run 之后
-    插入一个新的 run 来放置值，这样标签和值可以保持各自的格式。
+    标签和冒号可以跨run；定位分隔符后的文本偏移，插入独立run，
+    保留原有尾注和字体格式。
     """
     for paragraph in tc.findall(qn("w:p")):
         text_nodes = paragraph.findall(".//" + qn("w:t"))
         para_text = "".join((t.text or "") for t in text_nodes)
         if label in para_text:
+            insert_at = para_text.index(label) + len(label)
+            separator = _re.match(r"[ \t\u3000]*[：:][ \t\u3000]*", para_text[insert_at:])
+            if separator:
+                insert_at += separator.end()
             runs = paragraph.findall(qn("w:r"))
+            offset = 0
             for run in runs:
                 run_text = "".join((t.text or "") for t in run.findall(qn("w:t")))
-                if label in run_text:
-                    new_run = copy.deepcopy(run)
-                    for t_elem in new_run.findall(qn("w:t")):
-                        t_elem.text = value
-                        t_elem.set(qn("xml:space"), "preserve")
+                if offset + len(run_text) >= insert_at:
+                    # Locate the insertion by text offset, including colons in
+                    # separate runs. Clone only formatting, not existing text,
+                    # tabs or breaks (which would duplicate template content).
+                    new_run = OxmlElement("w:r")
+                    rpr = run.find(qn("w:rPr"))
+                    if rpr is not None:
+                        new_run.append(copy.deepcopy(rpr))
+                    write_text_to_run(new_run, value)
+                    position = insert_at - offset
+                    suffix = run_text[position:]
+                    if suffix:
+                        suffix_run = copy.deepcopy(new_run)
+                        write_text_to_run(suffix_run, suffix)
+                        write_text_to_run(run, run_text[:position])
                     run.addnext(new_run)
+                    if suffix:
+                        new_run.addnext(suffix_run)
                     return True
+                offset += len(run_text)
 
-            # 没有找到包含完整 label 的 run（跨 run 标签），回退到简单方式
+            # 嵌套元素中的文本无法按直接子run定位时，保留文本顺序回退。
             effective_rpr = get_first_run_rpr(paragraph)
-            replaced = para_text.replace(label, f"{label}{value}", 1)
+            replaced = para_text[:insert_at] + value + para_text[insert_at:]
             set_paragraph_text_preserve_runs(paragraph, replaced, effective_rpr)
             return True
 

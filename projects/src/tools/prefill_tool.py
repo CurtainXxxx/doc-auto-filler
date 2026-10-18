@@ -99,6 +99,7 @@ def _llm_prefill_fields(field_list: list, file_content: str, ctx=None) -> list:
 # 输出格式
 严格返回JSON数组，每个元素：
 {
+  "field_id": "字段清单中的原始field_id，必须逐项保留",
   "label": "字段名",
   "value": "提取的值或null",
   "confidence": 0.0到1.0,
@@ -478,6 +479,9 @@ def _parse_json_object(text: str) -> dict:
 
 def _find_matching_result(results: list, label: str, field_id: str) -> dict:
     """在LLM返回的结果列表中找到匹配label的结果。"""
+    for result in results:
+        if isinstance(result, dict) and field_id and result.get("field_id") == field_id:
+            return result
     # 精确匹配label
     for r in results:
         if isinstance(r, dict) and r.get("label") == label:
@@ -576,7 +580,7 @@ def _merge_multi_file_results(all_file_results: list) -> list:
 # ── 对外工具函数 ──
 
 @tool
-def prefill_from_knowledge(file_path: str, template_fields_json: str, row_groups_json: str = "", template_path: str = "") -> str:
+def prefill_from_knowledge(file_path: str, template_fields_json: str = "", row_groups_json: str = "", template_path: str = "") -> str:
     """从知识文件中提取模板字段值，生成带置信度的预填结果。
 
     用户上传知识文件（教学大纲、成绩单等）后，调用此工具自动提取所有字段的值。
@@ -587,7 +591,7 @@ def prefill_from_knowledge(file_path: str, template_fields_json: str, row_groups
 
     Args:
         file_path: 知识文件路径
-        template_fields_json: 模板字段清单JSON（来自analyze_template或analyze_uploaded_template的label_fields）
+        template_fields_json: 旧调用方式的模板字段清单JSON；提供template_path时可省略，直接读取完整权威字段及ID
         row_groups_json: 模板行组清单JSON（可选。如果传了template_path，此参数可省略——会自动分析模板获取行组）
         template_path: 模板文件路径（可选。传入后自动分析模板获取行组，无需单独传row_groups_json）
     """
@@ -609,17 +613,21 @@ def prefill_from_knowledge(file_path: str, template_fields_json: str, row_groups
         if file_content.startswith('['):
             return json.dumps({"success": False, "message": f"文件解析失败: {file_content}"}, ensure_ascii=False)
 
-        # 3. 解析模板字段
-        if isinstance(template_fields_json, str):
+        # Prefer canonical IDs from the actual template. Display-only field
+        # lists supplied by an agent can omit IDs and silently collapse on "".
+        template_analysis = analyze_template(template_path) if template_path else None
+        if template_analysis is not None:
+            template_fields = template_analysis.get("label_fields", [])
+        elif isinstance(template_fields_json, str):
             template_fields = json.loads(template_fields_json)
         else:
             template_fields = template_fields_json
 
         # 构建 field_list
         field_list = []
-        for f in template_fields:
-            label = f.get("raw_label") or f.get("label", "")
-            field_id = f.get("field_id", "")
+        for index, f in enumerate(template_fields):
+            label = f.get("label") or f.get("raw_label", "")
+            field_id = f.get("field_id") or f"legacy_{index}"
             if label:
                 field_list.append({"label": label, "field_id": field_id})
 
@@ -629,7 +637,7 @@ def prefill_from_knowledge(file_path: str, template_fields_json: str, row_groups
         # 4. 自动获取行组（如果传了 template_path 但没传 row_groups_json）
         if not row_groups_json and template_path:
             try:
-                analysis = analyze_template(template_path)
+                analysis = template_analysis or analyze_template(template_path)
                 row_groups = analysis.get("row_groups", [])
                 if row_groups:
                     row_groups_json = json.dumps(row_groups, ensure_ascii=False)
@@ -749,9 +757,9 @@ def prefill_from_multiple_knowledge(file_paths_json: str, template_fields_json: 
 
         # 构建 field_list
         field_list = []
-        for f in template_fields:
-            label = f.get("raw_label") or f.get("label", "")
-            field_id = f.get("field_id", "")
+        for index, f in enumerate(template_fields):
+            label = f.get("label") or f.get("raw_label", "")
+            field_id = f.get("field_id") or f"legacy_{index}"
             if label:
                 field_list.append({"label": label, "field_id": field_id})
 
@@ -866,9 +874,9 @@ def prefill_from_file_paths(file_paths: list, template_path: str) -> dict:
 
         # 2. 构建field_list
         field_list = []
-        for f in template_fields:
-            label = f.get("raw_label") or f.get("label", "")
-            field_id = f.get("field_id", "")
+        for index, f in enumerate(template_fields):
+            label = f.get("label") or f.get("raw_label", "")
+            field_id = f.get("field_id") or f"legacy_{index}"
             if label:
                 field_list.append({"label": label, "field_id": field_id})
 

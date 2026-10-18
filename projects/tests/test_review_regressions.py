@@ -22,6 +22,71 @@ from tools.docx_preview import _render_paragraph_with_fields
 client = TestClient(app)
 
 
+def test_agent_can_read_uploaded_knowledge_with_pagination_and_boundaries():
+    from document_access import save_upload
+    from tools.knowledge_tool import read_knowledge_file
+    content = "[验收资料]\n" + "知识正文" * 1600
+    path = save_upload(content.encode("utf-8"), ".txt")
+    first = json.loads(read_knowledge_file.invoke({"file_path": path}))
+    assert first["success"] and first["next_offset"] == 6000
+    last = json.loads(read_knowledge_file.invoke({"file_path": path, "offset": first["next_offset"]}))
+    assert last["success"] and last["next_offset"] is None
+    assert first["text"] + last["text"] == content
+    assert not json.loads(read_knowledge_file.invoke({"file_path": path, "offset": -1}))["success"]
+    assert not json.loads(read_knowledge_file.invoke({"file_path": str(PROJECT_ROOT / "src" / "main.py")}))["success"]
+
+
+@pytest.mark.parametrize("display_fields", ["", '[{"label":"数据申请部门"}]'])
+def test_agent_prefill_reads_complete_canonical_template_fields(monkeypatch, display_fields):
+    import tools.prefill_tool as prefill
+    from tools.template_analyzer import analyze_template
+    template = PROJECT_ROOT / "assets" / "templates" / "教务数据申请表.docx"
+    knowledge = next((PROJECT_ROOT / "assets" / "knowledge" / "教务数据申请").glob("*简单*.txt"))
+    labels = analyze_template(str(template))["label_fields"]
+    monkeypatch.setattr(prefill, "_call_llm", lambda *args, **kwargs: json.dumps([
+        {"field_id": f["field_id"], "label": f["label"], "value": None, "confidence": 0} for f in labels]))
+    result = json.loads(prefill.prefill_from_knowledge.invoke({"file_path": str(knowledge),
+        "template_path": str(template), "template_fields_json": display_fields}))
+    assert result["success"] and result["template_fields"] == 14
+    assert {f["field_id"] for f in result["fields"]} == {f["field_id"] for f in labels}
+    assert next(f["value"] for f in result["fields"] if f["field_id"] == "T0_R1_C1") == "李华"
+
+
+def test_legacy_prefill_fields_without_ids_do_not_collapse(monkeypatch):
+    import tools.prefill_tool as prefill
+    knowledge = next((PROJECT_ROOT / "assets" / "knowledge" / "教务数据申请").glob("*简单*.txt"))
+    monkeypatch.setattr(prefill, "_call_llm", lambda *args, **kwargs: "[]")
+    result = json.loads(prefill.prefill_from_knowledge.invoke({"file_path": str(knowledge),
+        "template_fields_json": '[{"label":"申请人姓名"},{"label":"工资号"}]'}))
+    assert result["success"] and len(result["fields"]) == 2
+    assert len({f["field_id"] for f in result["fields"]}) == 2
+    assert [f["value"] for f in result["fields"]] == ["李华", "20190567"]
+
+
+def test_prefill_matches_ids_before_repeated_labels():
+    from tools.prefill_tool import _find_matching_result
+    results = [{"field_id": "signature-a", "label": "负责人签名", "value": "甲"},
+               {"field_id": "signature-b", "label": "负责人签名", "value": "乙"}]
+    assert _find_matching_result(results, "负责人签名", "signature-b")["value"] == "乙"
+
+
+@pytest.mark.parametrize("parts", [
+    ["申请部门", "公章", "：", " ", "原有尾注"],
+    ["申请部门公章： 原有尾注"],
+    ["申请部门", "公章", ":", " 原有尾注"],
+])
+def test_colon_value_is_inserted_after_separator_across_runs(parts):
+    from tools.filling.colon_filler import append_value_to_tc_after_label
+    doc = Document()
+    cell = doc.add_table(rows=1, cols=1).cell(0, 0)
+    for part in parts:
+        cell.paragraphs[0].add_run(part).bold = True
+    assert append_value_to_tc_after_label(cell._tc, "申请部门公章", "验收单位")
+    colon = "：" if any("：" in p for p in parts) else ":"
+    assert cell.text == f"申请部门公章{colon} 验收单位原有尾注"
+    assert all(run.bold for run in cell.paragraphs[0].runs)
+
+
 @pytest.mark.parametrize("template,values,expected", [
     ("考场记录表", {"考试方式": "闭卷"}, {6: {"闭卷"}}),
     ("考场记录表", {"T0_R6_CHK": "开卷", "考试方式": "闭卷"}, {6: {"开卷"}}),
