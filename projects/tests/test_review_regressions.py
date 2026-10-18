@@ -22,6 +22,29 @@ from tools.docx_preview import _render_paragraph_with_fields
 client = TestClient(app)
 
 
+@pytest.mark.parametrize("template,values,expected", [
+    ("考场记录表", {"考试方式": "闭卷"}, {6: {"闭卷"}}),
+    ("考场记录表", {"T0_R6_CHK": "开卷", "考试方式": "闭卷"}, {6: {"开卷"}}),
+    ("试卷分析模板", {"课程性质": "必修", "命题形式": "教师组题", "考试形式": "闭卷", "教考分离": "否"},
+     {3: {"必修"}, 4: {"教师组题"}, 5: {"闭卷", "否"}}),
+])
+def test_manual_http_generation_selects_the_correct_checkbox(template, values, expected):
+    from tools.filling.base import get_unique_cells
+    from tools.filling.checkbox_filler import detect_checkbox_row
+    template_path = PROJECT_ROOT / "assets" / "templates" / f"{template}.docx"
+    result = client.post("/cofill-generate", json={"template_path": str(template_path), "field_values": values}).json()
+    assert result["success"], result
+    doc = Document(io.BytesIO(client.get(result["download_url"]).content))
+    # Detect positions from the pristine template, since selected blanks contain √.
+    source = Document(template_path)
+    for row_idx, selected in expected.items():
+        source_cells = get_unique_cells(source.tables[0].rows[row_idx])
+        output_cells = get_unique_cells(doc.tables[0].rows[row_idx])
+        for group in detect_checkbox_row(source_cells):
+            for option, blank_idx in group["option_blanks"].items():
+                assert output_cells[blank_idx].text.strip() == ("√" if option in selected else "")
+
+
 def upload_doc(doc):
     buffer = io.BytesIO()
     doc.save(buffer)

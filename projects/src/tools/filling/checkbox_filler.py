@@ -134,10 +134,27 @@ def fill_checkbox_rows_in_table(doc, analysis, data):
                 row_label = group["label"]
                 user_value = None
 
+                # HTTP/manual filling passes field IDs; resolve the checkbox at
+                # its actual table/row before the legacy label lookup. Matching
+                # the label too keeps two checkbox groups on one row separate.
+                row_fields = [
+                    field for field in analysis.get("label_fields", [])
+                    if field.get("table_idx") == t_idx
+                    and ri in field.get("row_indices", [field.get("row_idx")])
+                    and (normalize_option_text(field.get("label", "")) == normalize_option_text(row_label)
+                         or (row_label == "_checkbox_group" and len(groups) == 1
+                             and field.get("pattern") == "checkbox"))
+                ]
+                # Older analyzers expose only the first checkbox group as CHK;
+                # a second group may retain a normal label_blank field ID.
+                checkbox_fields = [f for f in row_fields if f.get("pattern") == "checkbox"] or row_fields
+                if len(checkbox_fields) == 1:
+                    user_value = data.get(checkbox_fields[0].get("field_id"))
+
                 # 1. 精确匹配
-                if row_label in data:
+                if user_value is None and row_label in data:
                     user_value = data[row_label]
-                else:
+                elif user_value is None:
                     # 2. 模糊匹配
                     clean_label = row_label.replace("\n", "").replace(" ", "")
                     for key in data:
