@@ -71,6 +71,9 @@ def _load_tools():
     )
     from tools.knowledge_tool import parse_knowledge_file, extract_facts
     from tools.old_report_extractor import extract_from_old_report, prefill_from_old_report, get_fill_checklist
+    from tools.old_report_extractor import inject_form_states
+    from tools.edu_report_tool import _active_form_states
+    inject_form_states(_active_form_states)
     from tools.prefill_tool import prefill_from_knowledge, prefill_from_multiple_knowledge
 
     return {

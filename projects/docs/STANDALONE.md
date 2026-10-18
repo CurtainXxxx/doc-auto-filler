@@ -49,3 +49,15 @@ uv run pytest
 ```
 
 自动测试不调用付费模型。真实模型质量、云端 S3 与 PostgreSQL 部署仍需相应环境联调。
+
+## 审查后的访问和运行限制
+
+本地文档仅允许 assets 与应用 data 下的 uploads/generated/pdf_output；源码、.env 和整个系统临时目录不能通过下载接口读取。本机其他位置的文件通过上传接口导入。知识材料支持 txt/md/csv/docx/xlsx/pdf，旧 doc/xls 先转换，当前不提供 OCR。
+
+远程代理下载需要显式 DOWNLOAD_ALLOWED_ORIGINS（精确 scheme://host:port，多项逗号分隔）；S3_ENDPOINT_URL 的来源自动允许。代理不跟随重定向，最多读取10MB。存储来源由管理员配置，不接受请求临时授权任意目标。
+
+上传每文件10MB、每次10个、总HTTP请求32MB；docx/xlsx展开后50MB、2048条目。上传目录上限100MB，不自动清理既有用户文件。长期生成文件配额与保留策略仍待完善。
+
+服务仍监听0.0.0.0且未增加多用户登录/权限体系；远程多用户使用前必须完成身份认证及资源归属设计。同会话并发保护只避免状态竞争。
+
+工程检查：`uv run ruff check src tests scripts`，前端检查：`node tests/check_frontend.cjs`。完整改进与未解决事项见 [CODE_REVIEW_REPORT.md](CODE_REVIEW_REPORT.md)。

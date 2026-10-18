@@ -557,6 +557,7 @@ def generate_form_document(session_id: str) -> str:
 
         # 获取已填字段值（label→value 映射，兼容生成引擎）
         filled_values = state.get_label_value_map()
+        filled_values.update(state.get_field_values())
         template_path = state.template_path
 
         if not filled_values:

@@ -27,33 +27,7 @@ from typing import Optional
 
 logger = logging.getLogger("edu_agent.tools")
 
-# 仅在无 handler 时初始化（防止重复添加）
-if not logger.handlers:
-    formatter = logging.Formatter(
-        fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    # 控制台 handler（开发环境）
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(logging.DEBUG)
-    logger.addHandler(console_handler)
-
-    # 文件 handler（生产环境，写入标准日志目录）
-    try:
-        from pathlib import Path
-        log_dir = Path("/app/work/logs/bypass")
-        log_dir.mkdir(parents=True, exist_ok=True)
-        file_handler = logging.FileHandler(log_dir / "app.log", encoding="utf-8")
-        file_handler.setFormatter(formatter)
-        file_handler.setLevel(logging.INFO)
-        logger.addHandler(file_handler)
-    except OSError:
-        # 日志目录不可写时静默降级，不阻断业务
-        pass
-
-    logger.setLevel(logging.DEBUG)
+# Logging is configured once by the application entry point.
 
 
 # ──────────────────────────────────────────────────────────
@@ -103,16 +77,16 @@ def _classify_exception(exc: Exception) -> tuple[_ErrorCategory, str]:
     # 1. 精确匹配
     if exc_type in _EXCEPTION_MAP:
         category, friendly_msg = _EXCEPTION_MAP[exc_type]
-        return category, f"{friendly_msg}（{exc}）"
+        return category, (f"{friendly_msg}（{exc}）" if category == _ErrorCategory.INPUT else friendly_msg)
 
     # 2. 按 MRO 向上查找父类匹配
     for parent in exc_type.__mro__[1:]:
         if parent in _EXCEPTION_MAP:
             category, friendly_msg = _EXCEPTION_MAP[parent]
-            return category, f"{friendly_msg}（{exc}）"
+            return category, (f"{friendly_msg}（{exc}）" if category == _ErrorCategory.INPUT else friendly_msg)
 
     # 3. 完全未知的异常
-    return _ErrorCategory.UNKNOWN, f"操作失败（{exc}）"
+    return _ErrorCategory.UNKNOWN, "操作失败，请查看服务日志"
 
 
 # ──────────────────────────────────────────────────────────

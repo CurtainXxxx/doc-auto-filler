@@ -34,10 +34,10 @@ def fill_paragraph_fields(doc, paragraph_fields, data):
     for f in paragraph_fields:
         label = f["label"]
         fid = f.get("field_id", "")
-        if label in data:
-            value = str(data[label])
-        elif fid in data:
+        if fid in data:
             value = str(data[fid])
+        elif label in data:
+            value = str(data[label])
         else:
             continue
 
@@ -84,7 +84,7 @@ def fill_paragraph_fields(doc, paragraph_fields, data):
                 continue
             run.text = re.sub(
                 r'_{4,}',
-                f' {sanitize_fill_text(value)} ',
+                lambda _match: f' {sanitize_fill_text(value)} ',
                 run.text,
                 count=1  # 只替换第一个匹配
             )

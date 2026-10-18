@@ -145,10 +145,10 @@ def fill_label_fields(doc, label_fields, data):
         if f.get("pattern") == "paragraph_underline":
             continue
         # 优先用 label 查 data，回退到 field_id
-        if label in data:
-            value = data[label]
-        elif fid in data:
+        if fid in data:
             value = data[fid]
+        elif label in data:
+            value = data[label]
         else:
             continue
         fill_mode = f.get("fill_mode", "append")

@@ -537,9 +537,6 @@ def _merge_prefill_results(llm_results: list, rule_results: list) -> list:
         fid = r['field_id']
         if fid not in merged or (merged[fid]['value'] is None and r['value'] is not None):
             merged[fid] = r
-        elif merged[fid]['value'] is None and r['value'] is not None:
-            # LLM没找到，但规则找到了
-            merged[fid] = r
 
     return list(merged.values())
 
@@ -552,54 +549,27 @@ def _merge_multi_file_results(all_file_results: list) -> list:
     if not all_file_results:
         return []
 
-    # 收集所有field_id
-    field_ids = set()
+    # Index once in encounter order, keeping caller-owned results immutable.
+    by_field = {}
     for results in all_file_results:
-        for r in results:
-            field_ids.add(r['field_id'])
-
+        for result in results:
+            by_field.setdefault(result["field_id"], []).append(result)
     merged = []
-    for fid in field_ids:
-        candidates = []
-        for results in all_file_results:
-            for r in results:
-                if r['field_id'] == fid and r['value'] is not None:
-                    candidates.append(r)
-
+    for fid, results in by_field.items():
+        candidates = [r for r in results if r["value"] is not None]
         if not candidates:
-            # 所有文件都没找到
-            label = ""
-            for results in all_file_results:
-                for r in results:
-                    if r['field_id'] == fid:
-                        label = r['label']
-                        break
-            merged.append({
-                "label": label,
-                "field_id": fid,
-                "value": None,
-                "confidence": 0,
-                "source": "",
-            })
-        elif len(candidates) == 1:
-            merged.append(candidates[0])
+            merged.append({"label": results[0]["label"], "field_id": fid,
+                           "value": None, "confidence": 0, "source": ""})
+            continue
+        best = dict(max(candidates, key=lambda r: r["confidence"]))
+        values = list(dict.fromkeys(json.dumps(r["value"], ensure_ascii=False, sort_keys=True) for r in candidates))
+        if len(values) == 1:
+            sources = list(dict.fromkeys(r["source"] for r in candidates if r["source"]))
+            best["source"] = " + ".join(sources) if sources else best["source"]
         else:
-            # 多个文件都有值
-            # 检查值是否一致
-            values = set(r['value'] for r in candidates)
-            if len(values) == 1:
-                # 值一致，取置信度最高的
-                best = max(candidates, key=lambda r: r['confidence'])
-                sources = [r['source'] for r in candidates if r['source']]
-                best['source'] = " + ".join(sources) if sources else best['source']
-                merged.append(best)
-            else:
-                # 值冲突，取置信度最高的但降低置信度
-                best = max(candidates, key=lambda r: r['confidence'])
-                best['confidence'] = min(best['confidence'], 0.6)  # 冲突降级
-                best['source'] = f"多文件有不同值({'+'.join(str(v)[:20] for v in values)})"
-                merged.append(best)
-
+            best["confidence"] = min(best["confidence"], 0.6)
+            best["source"] = "多文件有不同值(" + "+".join(str(json.loads(v))[:20] for v in values) + ")"
+        merged.append(best)
     return merged
 
 

@@ -33,102 +33,45 @@ def fill_simple_row_groups(doc, groups, data):
     - 空白/占位符格：用 set_tc_text_v2 填入，继承行内 rPr 格式
     """
     rg_field_values = {}
-    for g in groups:
+    # Bottom-up processing prevents inserted rows from shifting later groups.
+    for g in sorted(groups, key=lambda item: (item["table_idx"], item["start_row"]), reverse=True):
         gid = g["group_id"]
-        if gid not in data:
+        rows = data.get(gid)
+        if not isinstance(rows, list) or not rows:
             continue
-
-        row_data_list = data[gid]
-        if not isinstance(row_data_list, list):
+        if not all(isinstance(row, (list, tuple)) for row in rows):
+            raise ValueError(f"行组 {gid} 必须是二维数组")
+        table = doc.tables[g["table_idx"]]
+        start = g["start_row"]
+        count = g["template_row_count"]
+        if count < 1:
             continue
-
-        t_idx = g["table_idx"]
-        table = doc.tables[t_idx]
-        start_row = g["start_row"]
-        template_row_count = g["template_row_count"]
-
-        # 从 group_id 提取 group 序号 (如 "T0_G1" → 1)
+        # Clone the unfilled row, rather than duplicating values written earlier.
+        pristine = copy.deepcopy(table.rows[start + count - 1]._tr)
+        anchor = table.rows[start + count - 1]._tr
         g_num = int(gid.split("_G")[1]) if "_G" in gid else 0
-
-        # 填充模板行
-        for row_offset, row_data in enumerate(row_data_list):
-            if row_offset >= template_row_count:
-                break
-            actual_row = start_row + row_offset
-
-            tr = table.rows[actual_row]._tr
-            tcs = tr.findall(qn("w:tc"))
-
+        for offset, row_data in enumerate(rows):
+            if offset < count:
+                tr = table.rows[start + offset]._tr
+            else:
+                tr = copy.deepcopy(pristine)
+                anchor.addnext(tr)
+                anchor = tr
             data_idx = 0
-            for ti, tc in enumerate(tcs):
+            for tc in tr.findall(qn("w:tc")):
                 if data_idx >= len(row_data):
                     break
-
-                # vMerge continue 格：消耗数据但不填值
-                tcPr = tc.find(qn("w:tcPr"))
-                if tcPr is not None:
-                    vm = tcPr.find(qn("w:vMerge"))
-                    if vm is not None:
-                        val = vm.get(qn("w:val"))
-                        if val is None or val == "":
-                            fid = f"T{t_idx}_G{g_num}_R{row_offset}_C{data_idx}"
-                            rg_field_values[fid] = str(row_data[data_idx])
-                            data_idx += 1
-                            continue
-
-                # 提取格内文本
-                all_text = []
-                for p in tc.findall(qn("w:p")):
-                    for r in p.findall(qn("w:r")):
-                        for t in r.findall(qn("w:t")):
-                            if t.text:
-                                all_text.append(t.text)
-                text = "".join(all_text).strip()
-
-                # 空白格或占位符格：填入数据
-                if not text or text in ("%", "…", "……"):
-                    rPr_source = find_label_rPr_in_row(tr)
-                    set_tc_text_v2(tc, str(row_data[data_idx]), mode="set", rPr_source=rPr_source)
-                    fid = f"T{t_idx}_G{g_num}_R{row_offset}_C{data_idx}"
-                    rg_field_values[fid] = str(row_data[data_idx])
+                props = tc.find(qn("w:tcPr"))
+                merge = props.find(qn("w:vMerge")) if props is not None else None
+                continued = merge is not None and merge.get(qn("w:val")) in (None, "", "continue")
+                text = "".join(t.text or "" for t in tc.iter(qn("w:t"))).strip()
+                if continued or not text or text in ("%", "…", "……"):
+                    value = "" if row_data[data_idx] is None else str(row_data[data_idx])
+                    if not continued:
+                        set_tc_text_v2(tc, value, mode="set", rPr_source=find_label_rPr_in_row(tr))
+                    fid = f"T{g['table_idx']}_G{g_num}_R{offset}_C{data_idx}"
+                    rg_field_values[fid] = value
                     data_idx += 1
-
-        # 数据行数 > 模板行数：复制最后一行并填充
-        if len(row_data_list) > template_row_count:
-            for extra_idx in range(template_row_count, len(row_data_list)):
-                last_row = table.rows[start_row + template_row_count - 1]
-                new_tr = copy.deepcopy(last_row._tr)
-                last_row._tr.addnext(new_tr)
-
-                tcs = new_tr.findall(qn("w:tc"))
-                row_data = row_data_list[extra_idx]
-                data_idx = 0
-                for ti, tc in enumerate(tcs):
-                    if data_idx >= len(row_data):
-                        break
-                    tcPr = tc.find(qn("w:tcPr"))
-                    if tcPr is not None:
-                        vm = tcPr.find(qn("w:vMerge"))
-                        if vm is not None:
-                            val = vm.get(qn("w:val"))
-                            if val is None or val == "":
-                                fid = f"T{t_idx}_G{g_num}_R{extra_idx}_C{data_idx}"
-                                rg_field_values[fid] = str(row_data[data_idx])
-                                data_idx += 1
-                                continue
-                    all_text = []
-                    for p in tc.findall(qn("w:p")):
-                        for r in p.findall(qn("w:r")):
-                            for t in r.findall(qn("w:t")):
-                                if t.text:
-                                    all_text.append(t.text)
-                    text = "".join(all_text).strip()
-                    if not text or text in ("%", "…", "……"):
-                        set_tc_text_v2(tc, str(row_data[data_idx]), mode="set")
-                        fid = f"T{t_idx}_G{g_num}_R{extra_idx}_C{data_idx}"
-                        rg_field_values[fid] = str(row_data[data_idx])
-                        data_idx += 1
-
     return rg_field_values
 
 

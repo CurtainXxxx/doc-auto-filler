@@ -5,36 +5,35 @@ description = "Standalone document auto-filling service"
 requires-python = ">=3.12"
 dependencies = [
     "langchain==1.0.3",
-    "langchain-openai==1.0.1",
-    "langgraph==1.0.2",
-    "langgraph-checkpoint==3.0.0",
-    "langgraph-prebuilt==1.0.2",
-    "langgraph-sdk==0.2.9",
-    "langsmith==0.4.39",
+    "langchain-openai>=1.1.14,<1.2",
+    "langgraph==1.0.10",
+    "langgraph-checkpoint>=3.0.1,<4",
+    "langgraph-prebuilt==1.0.8",
     "fastapi>=0.121,<1",
     "uvicorn>=0.38,<1",
     "pydantic>=2.12,<3",
-    "Jinja2>=3.1,<4",
-    "alembic>=1.16,<2",
     "SQLAlchemy>=2.0,<3",
     "python-dotenv>=1.2,<2",
-    "psycopg2-binary>=2.9,<3",
     "boto3>=1.40,<2",
     "langgraph-checkpoint-postgres>=3.0,<4",
     "psycopg[binary]>=3.3,<4",
     "psycopg-pool>=3.3,<4",
-    "pypdf>=6.4,<7",
-    "docx2python>=3.5,<4",
+    "pypdf>=6.19,<7",
     "openpyxl>=3.1,<4",
-    "python-pptx>=1.0,<2",
-    "rich>=14,<15",
-    "chardet>=5.2,<6",
-    "python-multipart>=0.0.26",
-    "pypdf2>=3.0.1",
+    "python-multipart>=0.0.31,<0.1",
     "python-docx>=1.1.2,<2",
-    "lxml>=5.0,<6",
+    "lxml>=6.1.1,<7",
 ]
 
 
 [dependency-groups]
-dev = ["pytest>=8,<10", "httpx>=0.28,<1"]
+dev = ["pytest>=8,<10", "httpx>=0.28,<1", "ruff>=0.12,<1"]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

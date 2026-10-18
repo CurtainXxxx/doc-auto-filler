@@ -32,6 +32,8 @@ def _read_text_file(file_path: str) -> str:
 
 def _extract_text_from_file(file_path: str) -> str:
     """根据文件扩展名提取文本内容"""
+    from document_access import resolve_document_path
+    file_path = resolve_document_path(file_path)
     ext = os.path.splitext(file_path)[1].lower()
 
     if ext == '.txt' or ext == '.md':
@@ -119,7 +121,7 @@ def _extract_text_from_file(file_path: str) -> str:
 
     if ext == '.pdf':
         try:
-            from PyPDF2 import PdfReader
+            from pypdf import PdfReader
             reader = PdfReader(file_path)
             text_parts = []
             for page in reader.pages:

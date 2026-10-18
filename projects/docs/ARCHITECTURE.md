@@ -1,225 +1,78 @@
-# 格智 FormWise 智能填表系统 — 架构文档
+# FormWise 独立部署架构
 
-## 1. 系统概述
+## 项目定位与运行边界
 
-基于 LLM + LangGraph 的多 Agent 协作式 Word 文档自动填写系统。用户上传教务模板，通过对话或上传知识文件即可自动填充字段，保留原始格式并生成可下载的 docx 文件。
+应用将 Word 模板与知识材料转为字段建议，经用户编辑后生成保留模板格式的 Word 文档。
+使用 Python 3.12+、FastAPI、LangGraph、python-docx/OpenXML；前端为原生 HTML/CSS/JavaScript 单页应用。依赖由 uv.lock 锁定。
+当前定位为受信任的单用户工具，保持单 worker。应用监听 0.0.0.0:5000；localhost 访问地址不等于只监听回环地址。远程多用户部署需要身份认证和资源归属设计。
 
----
+## 数据流与模块边界
 
-## 2. 整体架构
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    用户界面（SPA）                           │
-│                  web/index.html (2942行)                    │
-│          聊天区 + 模板预览 + 字段编辑 + 文档下载             │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ HTTP / SSE
-┌──────────────────────────▼──────────────────────────────────┐
-│                  Web 服务层（FastAPI）                       │
-│                  src/main.py (1081行)                       │
-│    /upload /upload-template /prefill /run /stream_run       │
-│    /cofill-generate /v1/chat/completions /download-docx     │
-│    /template-preview ...                                    │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
-│              Agent 编排层（LangGraph StateGraph）            │
-│                  src/agents/agent.py (451行)                │
-│                                                             │
-│   START → Router → (条件路由) → Agent节点 → END             │
-│                                                             │
-│   ┌────────────────┐  ┌──────────────┐  ┌──────────────┐   │
-│   │ 知识提取 Agent │  │  填充 Agent  │  │  生成 Agent  │   │
-│   │   (5个工具)    │→ │   (8个工具)  │→ │   (3个工具)  │   │
-│   └────────────────┘  └──────────────┘  └──────────────┘   │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
-│                   工具层（@tool 函数）                        │
-│                                                             │
-│  edu_report_tool.py (599行)      filling/ 子模块 (1911行)    │
-│  template_analyzer.py (1416行)   prefill_tool.py (1034行)   │
-│  knowledge_tool.py (595行)       old_report_extractor.py    │
-│  docx_validator.py (739行)       docx_preview.py (487行)    │
-│  docx_upload.py (255行)          error_handler.py (186行)   │
-│                                                             │
-│  工具总数：16 个 @tool（3 个 Agent 按需分配）                │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
-│                    存储层                                     │
-│  memory/memory_saver.py (194行)  — 对话历史持久化            │
-│  database/db.py (144行)          — SQLite 关系型存储         │
-│  docx_upload.py                  — S3 对象存储              │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+  Browser[浏览器 SPA] --> API[FastAPI main.py]
+  API --> Files[document_access.py 文档边界和配额]
+  API --> Graph[service.py 调用与 SSE]
+  Graph --> Router[agents/agent.py Router]
+  Router --> Knowledge[知识提取 Agent]
+  Router --> Filling[填写 Agent]
+  Router --> Generation[生成 Agent]
+  Knowledge --> Provider[model_provider.py 兼容模型接口]
+  Filling --> Provider
+  Generation --> Provider
+  API --> Engine[tools/filling 生成引擎]
+  Generation --> Engine
+  Engine --> Storage[docx_upload 本地或标准 S3]
+  Graph --> Checkpoint[内存或 PostgreSQL Checkpointer]
 ```
 
----
+| 模块 | 职责 |
+| --- | --- |
+| `runtime.py` | 项目路径、环境加载、请求 ContextVar |
+| `document_access.py` | 文档目录/类型边界、上传配额、ZIP 展开限制、远程存储来源校验 |
+| `http_limits.py` | ASGI 接收阶段的请求大小上限，包括未提供 Content-Length 的请求 |
+| `main.py` | API、上传、预览、生成、下载；同步文档处理通过线程池执行 |
+| `service.py` | Graph 调用、稳定会话 ID、单次 run ID、同会话并发保护、工具事件、SSE 心跳与取消 |
+| `agents/agent.py` | Router → 知识提取/填写/生成节点；按阶段标记决定下一节点 |
+| `model_provider.py` | 对话、事实提取、预填共同使用显式配置的模型接口 |
+| `template_analyzer.py` | 冒号字段、标签空白格、段落横线、复选框、多列与行组识别 |
+| `tools/filling/` | 数据展开、字段/段落/复选框/重复行填写、样式继承、XML 后处理 |
+| `form_filling_state.py` | 字段值、确认状态、行组和序列化 |
+| `docx_validator.py` | 结构检查、模板差异与可修复 XML 问题 |
+| `docx_upload.py` | 保存、校验/修复、可选上传；本地与 S3 发布相同最终字节 |
+| `storage/memory/` | 内存兜底、可选 PostgreSQL 图消息历史 |
+| `storage/database/db.py` | 可直接使用的 SQLAlchemy PostgreSQL 会话工厂；不是 SQLite |
 
-## 3. 多 Agent 协作流水线
+## API（以当前路由为准）
 
-### 3.1 核心流程
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| GET | `/`, `/web/`, `/health` | 前端与健康检查 |
+| POST | `/run`, `/stream_run` | 同步图执行与简洁 SSE |
+| POST | `/v1/chat/completions` | 前端所需的兼容接口子集 |
+| POST | `/cancel/{run_id}`, `/node_run/{node_id}` | 取消和单节点执行 |
+| GET | `/graph_parameter` | 图输入输出 schema，可能需要模型配置 |
+| POST | `/upload`, `/upload-template` | 上传知识材料或 docx 模板 |
+| POST | `/prefill`, `/cofill-generate` | 预填与人工确认后的直接生成 |
+| GET | `/template-preview`, `/generated-preview` | 文档 HTML 预览 |
+| GET | `/download-docx`, `/convert-pdf` | Word 下载、可选 LibreOffice 转 PDF |
 
-```
-用户输入 → Router → knowledge_extraction → Router → filling → Router → generation → END
-```
+历史文档中的 `/templates`、`/cofill-fast-generate`、`/docx-download-url` 不是当前服务已实现的接口。
 
-Router 机制：根据对话中是否已有 `[FACTS]`、`[FIELDS]`、`[生成完成]` 标记，跳过已完成的阶段，只调用需要的 Agent。
+## 配置与存储
 
-### 3.2 三个 Agent 分工
+进程环境变量优先于 `projects/.env`。模型使用 EXTERNAL_LLM_BASE_URL/MODEL/API_KEY；不再使用 Coze。
+APP_WORKSPACE 默认为 projects，APP_DATA_DIR 默认为工作区下 data。文档访问限于工作区 assets、data/uploads、data/generated、data/pdf_output，并校验真实路径和扩展名。配置目录、源码及整个系统临时目录不在文档边界内。
+旧系统临时文件如需重新使用，应通过上传接口导入；不要扩大可下载目录到源码或配置目录。
 
-| Agent | 工具数 | 核心职责 |
-|-------|--------|----------|
-| **知识提取 Agent** | 5 | 旧报告提取、知识文件解析、事实提取、预填、数据准备清单 |
-| **填充 Agent** | 8 | 模板分析、表单初始化、字段更新、AI 预填、状态查询 |
-| **生成 Agent** | 3 | 表单文档生成、内置模板生成、上传模板生成 |
+上传每文件最大 10MB、每次最多 10 文件、HTTP 请求最大 32MB；OOXML 展开后最大 50MB、2048 个条目；上传目录累计最大 100MB。不会自动删除已有用户文件，达到配额后由使用者备份和清理。生成文件的长期保留/配额尚未统一管理。
+本地文件是默认存储，可选 S3。远程代理下载只接受 DOWNLOAD_ALLOWED_ORIGINS 中的确切来源或显式 S3_ENDPOINT_URL 来源，禁用自动重定向并限制响应为 10MB。
 
-### 3.3 阶段检测
+消息历史可选 PostgreSQL，字段状态仍保存在进程内；重启会丢失字段状态，数据库不会把它自动变成多 worker 或多租户系统。同一会话已有任务时，新的修改请求会被拒绝；这个机制不代替用户身份认证。
 
-每个 Agent 的 system_prompt 包含阶段完成标记指令（`[知识提取完成]` / `[填充完成]` / `[生成完成]`）。Router 函数通过正则匹配这些标记来决定流程走向。
+## 验证与限制
 
----
-
-## 4. 关键组件
-
-### 4.1 模板解析引擎（`template_analyzer.py` — 1416 行）
-
-5 层扫描算法：
-1. 冒号字段检测（`label:` 模式）
-2. 段落下划线字段检测（下划线 run 组拆分）
-3. 勾选框检测（□ 符号 + 选项词）
-4. 行组检测（表格行分组）
-5. 标签-blank 单元格检测
-
-关键特性：
-- 多标签段落检测：同一段落中多个非下划线 run 组拆分为独立字段
-- 行首标签 section context：优先使用当前行首个单元格内容作为上下文
-- 合并单元格处理：XML 级 vMerge 保护
-
-### 4.2 文档填充引擎（`filling/` 子模块 — 1911 行）
-
-| 文件 | 行数 | 职责 |
-|------|------|------|
-| `base.py` | 289 | 底层 XML 操作（单元格、行、vMerge） |
-| `token_style.py` | 318 | 词元级样式继承 v2（run 定位 + 3 模式策略） |
-| `colon_filler.py` | 195 | 冒号模式 + 签名/日期填充 |
-| `checkbox_filler.py` | 216 | 勾选框检测（两遍扫描：选项词 + □N.） |
-| `paragraph_filler.py` | 91 | 段落下划线字段填充 |
-| `row_group_filler.py` | 164 | 行组（T0_G0）填充 + multi_col |
-| `data_expander.py` | 189 | 通用模板数据预处理 |
-| `builtin_expander.py` | 241 | 内置模板数据预处理（考勤/分数段） |
-| `doc_builder.py` | 153 | 生成编排（build_report_docx / fill_custom_template） |
-| `postprocess.py` | 55 | 合并单元格修复（_fix_merged_cells） |
-
-### 4.3 AI 预填流程（`prefill_tool.py` — 1034 行）
-
-工作流：
-1. 接收模板分析结果（字段清单）
-2. 读取知识文件内容
-3. 调用 LLM 逐字段匹配值
-4. 返回三色置信度标记 + 填充率统计
-
-三色分类（cofill 模式）：
-
-| 颜色 | 含义 | 字段示例 |
-|------|------|----------|
-| 🟢 绿色 | 已确认填充 | 教材名称、主编姓名 |
-| 🟡 黄色 | 待人工确认 | 内容简介（AI 不确定） |
-| ⚪ 灰色 | 未匹配到数据 | 出版社名称（知识里没有） |
-
----
-
-## 5. API 端点
-
-| 端点 | 方法 | 功能 |
-|------|------|------|
-| `/upload` | POST | 上传知识文件 |
-| `/upload-template` | POST | 上传模板文件 |
-| `/prefill` | POST | AI 预填字段 |
-| `/cofill-generate` | POST | 人机协同生成文档 |
-| `/cofill-fast-generate` | POST | 快速生成（跳过分析） |
-| `/run` | POST | Agent 同步运行 |
-| `/stream_run` | POST | Agent SSE 流式运行 |
-| `/v1/chat/completions` | POST | OpenAI 兼容接口 |
-| `/download-docx` | GET | 下载生成的文档 |
-| `/template-preview` | GET | 模板 HTML 预览 |
-| `/templates` | GET | 内置模板列表 |
-| `/docx-download-url` | GET | 获取文档下载地址 |
-
----
-
-## 6. 状态管理
-
-### 6.1 Agent 状态（`agent.py`）
-
-```
-MultiAgentState(MessagesState):
-  - messages: List[BaseMessage]    # 对话历史
-  - remaining_steps: int           # 剩余步骤控制
-```
-
-### 6.2 表单状态（`FormFillingState`）
-
-```
-FormFillingState:
-  - label_fields: List[Dict]       # 字段清单
-  - row_groups: List[Dict]         # 行组信息
-  - field_values: Dict[str, str]   # 字段值
-```
-
-### 6.3 记忆持久化（`memory_saver.py`）
-
-基于文件的 Checkpointer，支持：
-- 多 session 隔离（通过 sessionId）
-- 消息历史持久化
-- 降级回退策略
-
----
-
-## 7. 代码规模
-
-| 模块 | 文件 | 行数 |
-|------|------|------|
-| Web 服务入口 | `main.py` | 1,081 |
-| Agent 编排 | `agent.py` | 451 |
-| **工具层合计** | **16 个文件** | **7,911** |
-| ├─ 模板分析 | `template_analyzer.py` | 1,416 |
-| ├─ AI 预填 | `prefill_tool.py` | 1,034 |
-| ├─ 文档填充子模块 | `filling/` (10 文件) | 1,911 |
-| ├─ 文档校验 | `docx_validator.py` | 739 |
-| ├─ 旧报告提取 | `old_report_extractor.py` | 609 |
-| ├─ 知识工具 | `knowledge_tool.py` | 595 |
-| ├─ 文档工具 | `edu_report_tool.py` | 599 |
-| ├─ 文档预览 | `docx_preview.py` | 487 |
-| ├─ 上传服务 | `docx_upload.py` | 255 |
-| └─ 错误处理 | `error_handler.py` | 186 |
-| 前端 SPA | `index.html` | 2,942 |
-| 存储层 | `memory_saver.py` + `db.py` | 338 |
-| **合计** | **20 个核心文件** | **~12,723** |
-
----
-
-## 8. 技术栈
-
-| 层 | 技术 |
-|----|------|
-| 后端框架 | Python 3.12 / FastAPI |
-| AI 框架 | LangChain 1.0 / LangGraph 1.0 |
-| 模型 | 豆包 Seed / DeepSeek（OpenAI 兼容接口） |
-| 文档处理 | python-docx / OpenXML |
-| 包管理 | uv（Python） |
-| 存储 | S3 兼容对象存储 / 内存 Checkpointer |
-| 前端 | 原生 HTML + CSS + JavaScript（单文件 SPA） |
-
----
-
-## 9. 评测概况
-
-| 指标 | 数值 |
-|------|------|
-| 测试用例 | 21（7 模板 × 3 难度） |
-| 平均填充率 | 91.7% |
-| 平均准确率 | 70.2% |
-| 总成本 | ¥0.63 |
-| 扩展验证 | 8 非教务通用模板 |
+运行 `uv run pytest -q`、`uv run ruff check src tests scripts`、`node tests/check_frontend.cjs`。
+CI 对 Linux/Windows、Python 3.12/3.13 执行相同检查。新增 CI 的实际结果应以对应 GitHub Actions 运行为准。
+自动测试使用本地模拟模型和 S3 客户端；真实模型、云端 S3/PostgreSQL、LibreOffice 转换和所有真实文档的视觉一致性需要独立联调。
+完整审查结果见 [CODE_REVIEW_REPORT.md](CODE_REVIEW_REPORT.md)。

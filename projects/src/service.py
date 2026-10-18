@@ -3,6 +3,10 @@ import asyncio
 import json
 from runtime import new_context, request_context
 
+
+class SessionBusyError(ValueError):
+    """A session already has an active state-changing graph invocation."""
+
 def sse(data):
     return "data: " + json.dumps(data, ensure_ascii=False, default=str) + "\n\n"
 
@@ -11,6 +15,7 @@ class GraphService:
     def __init__(self):
         self._graph = None
         self.running_tasks = {}
+        self._active_sessions = set()
 
     def _get_graph(self, ctx=None):
         if self._graph is None:
@@ -19,33 +24,54 @@ class GraphService:
         return self._graph
 
     def _input(self, payload):
+        if not isinstance(payload, dict):
+            raise ValueError("请求体必须是JSON对象")
         messages = payload.get("messages")
         if messages is None:
             text = payload.get("text") or payload.get("message", "")
+            if not isinstance(text, str):
+                raise ValueError("text/message必须是字符串")
             messages = [{"role": "user", "content": text}]
+        if not isinstance(messages, list) or not messages:
+            raise ValueError("messages必须是非空数组")
         return {"messages": messages}
 
     def _config(self, payload, ctx):
         # Stable session id preserves history; independent run id enables cancellation.
         session = payload.get("session_id") or ctx.session_id or ctx.run_id
+        if not isinstance(session, str) or len(session) > 200:
+            raise ValueError("session_id必须是不超过200字符的字符串")
         ctx.session_id = session
         return {"configurable": {"thread_id": session}, "recursion_limit": 100}
 
     async def run(self, payload, ctx=None):
         ctx = ctx or new_context("run")
+        graph_input = self._input(payload)
+        config = self._config(payload, ctx)
+        session = ctx.session_id
+        if session in self._active_sessions:
+            raise SessionBusyError("此会话正在处理中，请等待完成后重试")
+        self._active_sessions.add(session)
         token = request_context.set(ctx)
         try:
-            return await self._get_graph(ctx).ainvoke(self._input(payload), config=self._config(payload, ctx))
+            return await self._get_graph(ctx).ainvoke(graph_input, config=config)
         finally:
             request_context.reset(token)
+            self._active_sessions.discard(session)
 
     async def deltas(self, payload, ctx):
         """Forward text tokens and tool results, including events from nested agents."""
+        graph_input = self._input(payload)
+        config = self._config(payload, ctx)
+        session = ctx.session_id
+        if session in self._active_sessions:
+            raise SessionBusyError("此会话正在处理中，请等待完成后重试")
+        self._active_sessions.add(session)
         token = request_context.set(ctx)
         try:
             graph = self._get_graph(ctx)
             streamed_runs = set()
-            async for event in graph.astream_events(self._input(payload), config=self._config(payload, ctx), version="v2"):
+            async for event in graph.astream_events(graph_input, config=config, version="v2"):
                 data = event.get("data", {})
                 if event["event"] == "on_chat_model_stream":
                     chunk = data.get("chunk")
@@ -71,6 +97,7 @@ class GraphService:
                     yield {"role": "tool", "content": content, "name": event.get("name", "")}
         finally:
             request_context.reset(token)
+            self._active_sessions.discard(session)
 
     async def stream_sse(self, payload, ctx, *, openai=False):
         """Queue events for heartbeats; cancel producer on disconnect or timeout."""
@@ -92,7 +119,14 @@ class GraphService:
                 else:
                     await queue.put(marker)
         task = asyncio.create_task(produce())
+        if ctx.run_id in self.running_tasks:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+            yield sse({"error": {"message": "run_id正在使用中"}})
+            yield "data: [DONE]\n\n"
+            return
         self.running_tasks[ctx.run_id] = task
+        failed = False
         try:
             while True:
                 try:
@@ -105,13 +139,14 @@ class GraphService:
                 if delta is marker:
                     break
                 if "error" in delta:
+                    failed = True
                     yield sse(delta)
                 elif openai:
                     yield sse({"id": "chatcmpl-" + ctx.run_id, "object": "chat.completion.chunk",
                                "model": "agent", "choices": [{"index": 0, "delta": delta, "finish_reason": None}]})
                 else:
                     yield sse(delta)
-            if openai:
+            if openai and not failed:
                 yield sse({"id": "chatcmpl-" + ctx.run_id, "object": "chat.completion.chunk", "model": "agent",
                            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]})
             yield "data: [DONE]\n\n"

@@ -52,6 +52,7 @@ class FormFillingState:
         self._analysis_result = analysis_result
         self._fields = {}
         self._field_order = []
+        self._row_groups_data = {}
 
         for f in analysis_result.get("label_fields", []):
             fid = f.get("field_id", "")
@@ -85,7 +86,7 @@ class FormFillingState:
         matched = []
         unmatched = []
         for key, value in values.items():
-            if not value:
+            if value is None or value == "":
                 continue
             # 检查是否为行组数据（如 "T0_G0": [["CS201",...], ...]）
             if isinstance(value, list) and self._is_row_group_key(key):
@@ -116,7 +117,7 @@ class FormFillingState:
         Args:
             field_ids: 要确认的字段ID列表，None=确认所有FILLED字段
         """
-        for fid in (field_ids or self._fields.keys()):
+        for fid in (self._fields.keys() if field_ids is None else field_ids):
             if fid in self._fields and self._fields[fid]["status"] == self.FILLED:
                 self._fields[fid]["status"] = self.CONFIRMED
         self.updated_at = time.time()
@@ -291,6 +292,7 @@ class FormFillingState:
     def to_dict(self) -> dict:
         """序列化为字典（可存入缓存或传给前端）"""
         return {
+            "session_id": self.session_id,
             "template_name": self.template_name,
             "template_path": self.template_path,
             "created_at": self.created_at,
@@ -329,6 +331,8 @@ class FormFillingState:
 
     def _resolve_field_id(self, key: str) -> Optional[str]:
         """将 label 或 field_id 解析为 field_id"""
+        if not isinstance(key, str) or not key.strip():
+            return None
         # 先精确匹配 field_id
         if key in self._fields:
             return key
@@ -338,6 +342,8 @@ class FormFillingState:
                 return fid
         # 模糊匹配
         key_lower = key.lower().strip()
+        if not key_lower:
+            return None
         for fid, f in self._fields.items():
             label_lower = (f["raw_label"] or f["label"]).lower().strip()
             if key_lower in label_lower or label_lower in key_lower:
