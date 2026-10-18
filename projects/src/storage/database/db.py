@@ -2,7 +2,7 @@
 SQLAlchemy 数据库引擎管理模块。
 
 职责：
-1. 从环境变量或 Coze Workload Identity 获取 PGDATABASE_URL
+1. 从环境变量获取 PGDATABASE_URL
 2. 创建带重试机制的 SQLAlchemy 引擎
 3. 提供 sessionmaker / session 工厂方法
 
@@ -30,37 +30,8 @@ except Exception:
 
 
 def get_db_url() -> str:
-    """获取 PostgreSQL 数据库连接字符串。
-
-    优先级：
-    1. PGDATABASE_URL 环境变量（部署时由平台注入）
-    2. coze_workload_identity（项目级配置，开发环境）
-
-    Returns:
-        str: 数据库连接 URL
-
-    Raises:
-        Exception: 两种来源均无法获取时抛出
-    """
-    url = os.getenv("PGDATABASE_URL") or ""
-    if url is not None and url != "":
-        return url
-    from coze_workload_identity import Client
-    try:
-        client = Client()
-        env_vars = client.get_project_env_vars()
-        client.close()
-        for env_var in env_vars:
-            if env_var.key == "PGDATABASE_URL":
-                url = env_var.value.replace("'", "'\\''")
-                return url
-    except Exception as e:
-        logger.error(f"Error loading PGDATABASE_URL: {e}")
-        raise e
-    finally:
-        if url is None or url == "":
-            logger.error("PGDATABASE_URL is not set")
-    return url
+    """Read optional PostgreSQL configuration from the process environment."""
+    return os.getenv("PGDATABASE_URL", "").strip()
 
 
 # 全局单例缓存

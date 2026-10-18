@@ -1,3 +1,9 @@
+## 当前独立部署分支
+
+本分支已移除原平台运行环境。下方平台配置、shim、工作区和旧脚本说明为历史记录，不再适用。
+当前入口：`projects/src/main.py`；配置：`projects/.env`；模型：`model_provider.py`；运行：`uv run python src/main.py -p 5000`。
+使用 Python 3.12+ 与 uv，保持单 worker。迁移及测试见 `projects/docs/STANDALONE.md`。
+
 ## 项目概述
 
 **智能教务文档填写系统** — 基于 LLM + LangGraph 的多 Agent 协作式 Word 文档自动填写系统。用户上传教务模板，通过对话或上传知识文件即可自动填充字段，保留原始格式并生成可下载的 docx 文件。

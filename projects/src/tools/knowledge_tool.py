@@ -1,4 +1,5 @@
 """知识文件解析工具 - 通过LLM智能提取文档所需信息"""
+from runtime import WORKSPACE
 
 import os
 import re
@@ -6,14 +7,14 @@ import json
 from dotenv import load_dotenv
 
 # 加载项目根目录的 .env 文件
-_workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
-load_dotenv(os.path.join(_workspace, ".env"), override=True)
+_workspace = str(WORKSPACE)
+load_dotenv(os.path.join(_workspace, ".env"), override=False)
 
 from langchain.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage
-from coze_coding_dev_sdk import LLMClient
-from coze_coding_utils.log.write_log import request_context
-from coze_coding_utils.runtime_ctx.context import new_context
+from model_provider import call_model
+from runtime import request_context
+from runtime import new_context
 
 
 def _read_text_file(file_path: str) -> str:
@@ -190,59 +191,7 @@ def _llm_extract_fields(field_list: list, file_content: str, ctx=None) -> dict:
 
     try:
         # 支持外部模型API（如 DeepSeek）
-        ext_api_key = os.getenv("EXTERNAL_LLM_API_KEY")
-        ext_base_url = os.getenv("EXTERNAL_LLM_BASE_URL")
-
-        if ext_api_key and ext_base_url:
-            # 使用外部API
-            from langchain_openai import ChatOpenAI
-            ext_model = os.getenv("EXTERNAL_LLM_MODEL", "deepseek-chat")
-            ext_llm = ChatOpenAI(
-                model=ext_model,
-                api_key=ext_api_key,
-                base_url=ext_base_url,
-                temperature=0.1,
-                max_tokens=4096,
-            )
-            from langchain_core.messages import SystemMessage as SM, HumanMessage as HM
-            response = ext_llm.invoke([SM(content=system_prompt), HM(content=user_prompt)])
-            content = response.content
-            # type: ignore 响应内容可能为list或str
-            content_str: str = ""
-            if isinstance(content, list):
-                content_str = " ".join(
-                    item.get("text", "") for item in content
-                    if isinstance(item, dict) and item.get("type") == "text"
-                )
-            elif isinstance(content, str):
-                content_str = content
-            else:
-                content_str = str(content)
-        else:
-            # 使用平台内置LLM
-            client = LLMClient(ctx=ctx)
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt),
-            ]
-            response = client.invoke(
-                messages=messages,
-                model="doubao-seed-1-6-lite-251015",
-                temperature=0.1,
-                max_completion_tokens=4096,
-            )
-            content = response.content
-            # type: ignore 响应内容可能为list或str
-            content_str: str = ""
-            if isinstance(content, list):
-                content_str = " ".join(
-                    item.get("text", "") for item in content
-                    if isinstance(item, dict) and item.get("type") == "text"
-                )
-            elif isinstance(content, str):
-                content_str = content
-            else:
-                content_str = str(content)
+        content_str = call_model(system_prompt, user_prompt)
 
         # 提取JSON部分
         content_str = content_str.strip()
@@ -512,42 +461,7 @@ def extract_facts(file_description: str, file_content: str) -> str:
 {{"课程名称": "（从文件提取的值）", "学时数": "（从文件提取的值）", "教师姓名": "（从文件提取的值）"}}"""
 
     try:
-        ext_api_key = os.getenv("EXTERNAL_LLM_API_KEY")
-        ext_base_url = os.getenv("EXTERNAL_LLM_BASE_URL")
-
-        if ext_api_key and ext_base_url:
-            from langchain_openai import ChatOpenAI
-            ext_model = os.getenv("EXTERNAL_LLM_MODEL", "deepseek-chat")
-            ext_llm = ChatOpenAI(
-                model=ext_model,
-                api_key=ext_api_key,
-                base_url=ext_base_url,
-                temperature=0.1,
-                max_tokens=4096,
-            )
-            from langchain_core.messages import SystemMessage as SM, HumanMessage as HM
-            response = ext_llm.invoke([SM(content=system_prompt), HM(content=user_prompt)])
-            content_str = response.content
-        else:
-            client = LLMClient(ctx=ctx)
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt),
-            ]
-            response = client.invoke(
-                messages=messages,
-                model="doubao-seed-1-6-lite-251015",
-                temperature=0.1,
-                max_completion_tokens=4096,
-            )
-            content_str = response.content
-            if isinstance(content_str, list):
-                content_str = " ".join(
-                    item.get("text", "") for item in content_str
-                    if isinstance(item, dict) and item.get("type") == "text"
-                )
-            elif not isinstance(content_str, str):
-                content_str = str(content_str)
+        content_str = call_model(system_prompt, user_prompt)
 
         # 确保 content_str 是字符串
         if not isinstance(content_str, str):

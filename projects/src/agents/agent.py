@@ -7,6 +7,7 @@
 每个Agent输出带标签（[知识提取Agent]/[填充Agent]/[生成Agent]），
 评审可直观看到多Agent协作过程。
 """
+from runtime import WORKSPACE
 
 import os
 import re
@@ -17,8 +18,8 @@ from dotenv import load_dotenv
 _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _env_path = os.path.join(_project_root, ".env")
 if not os.path.isfile(_env_path):
-    _env_path = os.path.join(os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"), ".env")
-load_dotenv(_env_path, override=True)
+    _env_path = os.path.join(str(WORKSPACE), ".env")
+load_dotenv(_env_path, override=False)
 
 from langchain.messages import ToolMessage, AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -27,7 +28,7 @@ from langgraph.graph import StateGraph, START, END, MessagesState
 from langgraph.graph.message import add_messages
 from langgraph.graph.state import CompiledStateGraph
 from langchain_core.messages import AnyMessage
-from coze_coding_utils.runtime_ctx.context import default_headers
+from model_provider import build_model
 from storage.memory.memory_saver import get_memory_saver
 
 
@@ -56,67 +57,8 @@ def _sanitize_messages(state, runtime):
 
 # ── LLM 构建 ──
 def _build_llm(ctx=None):
-    """构建 LLM 实例：优先外部 API（环境变量 → config fallback），再 fallback 平台内置模型"""
-    external_key = os.getenv("EXTERNAL_LLM_API_KEY")
-
-    # Fallback: 从 agent_llm_config.json 读取（用于部署环境无 .env 的情况）
-    if not external_key:
-        try:
-            cfg_path = os.path.join(_project_root, "config", "agent_llm_config.json")
-            if not os.path.isfile(cfg_path):
-                cfg_path = os.path.join(
-                    os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"),
-                    "config", "agent_llm_config.json"
-                )
-            with open(cfg_path, "r", encoding="utf-8") as f:
-                raw_cfg = json.load(f)
-            ext_cfg = raw_cfg.get("external_llm", {})
-            if ext_cfg.get("api_key"):
-                external_key = ext_cfg["api_key"]
-                # 临时设为环境变量，后续代码（如 prefill 工具）也能用到
-                os.environ["EXTERNAL_LLM_API_KEY"] = external_key
-                os.environ["EXTERNAL_LLM_BASE_URL"] = ext_cfg.get("base_url", "https://api.deepseek.com/v1")
-                os.environ["EXTERNAL_LLM_MODEL"] = ext_cfg.get("model", "deepseek-chat")
-        except Exception:
-            pass
-
-    if external_key:
-        return ChatOpenAI(
-            model=os.getenv("EXTERNAL_LLM_MODEL", "deepseek-chat"),
-            api_key=external_key,
-            base_url=os.getenv("EXTERNAL_LLM_BASE_URL", "https://api.deepseek.com/v1"),
-            temperature=0.3,
-            max_tokens=4096,
-            streaming=True,
-            timeout=600,
-        )
-
-    cfg_path = os.path.join(_project_root, "config", "agent_llm_config.json")
-    if not os.path.isfile(cfg_path):
-        cfg_path = os.path.join(os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"), "config", "agent_llm_config.json")
-    with open(cfg_path, "r", encoding="utf-8") as f:
-        raw_cfg = json.load(f)
-
-    # Bug 3 修复：config 结构是 {"config": {"model": ..., "temperature": ...}}，不是平铺
-    cfg = raw_cfg.get("config", raw_cfg)
-
-    model_name = cfg.get("model", "doubao-seed-1-6-251015")
-    temperature = cfg.get("temperature", 0.7)
-    timeout = cfg.get("timeout", 600)
-
-    # Bug 2 修复：传入 ctx 生成平台认证头
-    headers = default_headers(ctx) if ctx else default_headers() or {}
-
-    return ChatOpenAI(
-        model=model_name,
-        api_key=os.getenv("ARK_API_KEY", os.getenv("OPENAI_API_KEY", "")),
-        base_url=os.getenv("ARK_BASE_URL", os.getenv("OPENAI_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")),
-        temperature=temperature,
-        max_tokens=4096,
-        streaming=True,
-        timeout=timeout,
-        default_headers=headers,
-    )
+    """Build a provider-neutral model without platform authentication."""
+    return build_model(streaming=True)
 
 
 # ── 工具导入 ──
@@ -334,14 +276,14 @@ def route_after_filling(state: MultiAgentState) -> str:
 # ── 图构建 ──
 def build_agent(ctx=None) -> CompiledStateGraph:
     """构建多Agent协作图（Router + 条件路由）"""
-    # Bug 2 修复：ctx 传入 _build_llm 用于平台认证
+    # 使用统一的独立模型配置
     llm = _build_llm(ctx)
     tools = _load_tools()
     checkpointer = get_memory_saver()
 
     cfg_path = os.path.join(_project_root, "config", "agent_llm_config.json")
     if not os.path.isfile(cfg_path):
-        cfg_path = os.path.join(os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"), "config", "agent_llm_config.json")
+        cfg_path = os.path.join(str(WORKSPACE), "config", "agent_llm_config.json")
     with open(cfg_path, "r", encoding="utf-8") as f:
         raw_cfg = json.load(f)
 

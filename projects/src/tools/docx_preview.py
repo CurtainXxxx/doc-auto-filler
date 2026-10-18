@@ -4,6 +4,7 @@
 - html: 文档的 HTML 渲染（表格、段落），可填写单元格带 contenteditable
 - field_map: field_id → { label, table_idx, row_idx, col_idx } 映射
 """
+from runtime import WORKSPACE
 
 import os
 import re
@@ -22,13 +23,13 @@ def _resolve_template_path(template_path: str) -> str:
     if os.path.isfile(template_path):
         return template_path
 
-    workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
+    workspace = str(WORKSPACE)
 
     # 尝试作为内置模板名解析
     _BUILTIN_TEMPLATES = {
-        "评价报告": "2023-2024-2《xxx》 岭南师范学院专业课程目标达成度评价报告模板.docx",
-        "试卷分析": "2023-2024-2《xxx》 试卷分析模板.docx",
-        "关联矩阵": "2023-2024-2《xxx》岭南师范学院考题与课程目标及毕业要求关联矩阵表模板.docx",
+        "评价报告": "templates/评价报告模板.docx",
+        "试卷分析": "templates/试卷分析模板.docx",
+        "关联矩阵": "templates/关联矩阵模板.docx",
     }
     if template_path in _BUILTIN_TEMPLATES:
         fname = _BUILTIN_TEMPLATES[template_path]
