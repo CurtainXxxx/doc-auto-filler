@@ -111,7 +111,7 @@ class MemoryManager:
         """从环境变量安全获取数据库连接字符串。
 
         优先从 PGDATABASE_URL 环境变量读取；
-        失败时尝试从 coze_workload_identity 获取项目级配置。
+        未配置时使用内存存储。
 
         Returns:
             str | None: db_url 或 None（获取失败/为空）

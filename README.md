@@ -1,3 +1,7 @@
+> 当前分支已移除扣子平台运行依赖。安装与迁移步骤见 [独立运行说明](projects/docs/STANDALONE.md)。
+> 快速启动：进入 `projects`，执行 `uv sync --frozen`，按 `.env.example` 配置模型，再运行 `uv run python src/main.py -p 5000`。
+> 不配置模型也可使用模板上传、预览及手工填写生成。
+
 # 格智 FormWise — 智能文档自动填写系统
 
 上传 Word 模板与参考材料，系统自动识别字段、提取信息、完整填充并生成 docx 文档，格式完整保留。
@@ -74,7 +78,7 @@ bash projects/scripts/http_run.sh -p 5000
 | 大模型 | DeepSeek / 豆包（OpenAI 兼容接口） |
 | 文档处理 | python-docx + lxml（OpenXML 底层操作） |
 | 前端 | 原生 HTML + CSS + JS（单文件 SPA） |
-| 部署 | Coze 智能体平台 |
+| 部署 | 独立 FastAPI / uv，本地或自建服务器 |
 
 ## 评测结果
 
@@ -125,7 +129,7 @@ bash projects/scripts/http_run.sh -p 5000
 │   ├── config/               # Agent 配置
 │   └── scripts/              # 启动脚本
 ├── ground_truth/             # 21 个真值评测用例
-├── .coze                     # Coze 平台配置
+├── projects/.env.example     # 独立部署配置示例
 ├── AGENTS.md                 # 项目记忆与修复记录
 └── eval_report_20260609_181045.md
 ```

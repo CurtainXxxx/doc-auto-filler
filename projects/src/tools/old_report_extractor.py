@@ -6,6 +6,7 @@ old_report_extractor — 旧报告反向提取 + 数据准备清单
 2. 将提取结果自动预填入 FormFillingState
 3. 生成数据准备清单（分类：必填/可继承/可计算/可选）
 """
+from runtime import WORKSPACE
 
 import os
 import re
@@ -15,8 +16,8 @@ from typing import Optional
 from docx import Document
 from docx.oxml.ns import qn
 from langchain.tools import tool
-from coze_coding_utils.log.write_log import request_context
-from coze_coding_utils.runtime_ctx.context import new_context
+from runtime import request_context
+from runtime import new_context
 
 from tools.template_analyzer import analyze_template
 from tools.form_filling_state import FormFillingState
@@ -25,9 +26,9 @@ from tools.form_filling_state import FormFillingState
 # ── 模板注册表（与 edu_report_tool.py 同步） ──
 
 TEMPLATE_REGISTRY = {
-    "评价报告": "assets/2023-2024-2《xxx》 岭南师范学院专业课程目标达成度评价报告模板.docx",
-    "试卷分析": "assets/2023-2024-2《xxx》 试卷分析模板.docx",
-    "关联矩阵": "assets/2023-2024-2《xxx》岭南师范学院考题与课程目标及毕业要求关联矩阵表模板.docx",
+    "评价报告": "assets/templates/评价报告模板.docx",
+    "试卷分析": "assets/templates/试卷分析模板.docx",
+    "关联矩阵": "assets/templates/关联矩阵模板.docx",
 }
 
 # ── 会话缓存（与 edu_report_tool.py 共享引用） ──
@@ -45,7 +46,7 @@ def inject_form_states(states_dict: dict) -> None:
 
 def _resolve_template_path(template_name_or_path: str) -> str:
     """将模板名称或路径解析为实际文件路径"""
-    workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
+    workspace = str(WORKSPACE)
     for name, rel_path in TEMPLATE_REGISTRY.items():
         if name == template_name_or_path:
             return os.path.join(workspace, rel_path)

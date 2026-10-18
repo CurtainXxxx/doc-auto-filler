@@ -12,8 +12,6 @@ __pycache__/
 *.egg-info/
 
 # 平台配置
-.coze/
-.cozeproj/
 
 # 环境变量（含 API 密钥）
 .env
@@ -33,4 +31,4 @@ local_debug.py
 # 模板生成的临时文件（保留原始模板，忽略带时间戳的副本）
 assets/*_2026*.docx
 assets/*.png
-.cozeproj/reduction
+data/

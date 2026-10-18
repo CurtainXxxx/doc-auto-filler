@@ -1,3 +1,5 @@
+> 最新配置及启动步骤见 [STANDALONE.md](docs/STANDALONE.md)。
+
 # 格智 FormWise — 智能文档自动填写系统
 
 上传 Word 模板与参考材料，系统自动识别字段、提取信息、完整填充文档，格式完整保留。
@@ -68,8 +70,8 @@ bash scripts/http_run.sh -p 5000
 │   └── agent_llm_config.json     # Agent 配置（系统提示词 + 工具注册）
 ├── scripts/
 │   ├── http_run.sh               # 服务启动脚本
-│   ├── coze-preview-build.sh     # 预览构建
-│   └── coze-preview-run.sh       # 预览运行
+│   ├── setup.sh     # 预览构建
+│   └── http_run.sh       # 预览运行
 ├── assets/
 │   ├── templates/                # 15 个 docx 模板
 │   └── knowledge/                # 知识文件（各模板 3 种难度）

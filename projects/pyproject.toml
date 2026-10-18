@@ -1,7 +1,7 @@
 [project]
-name = "vibe-coding"
+name = "doc-auto-filler"
 version = "0.1.0"
-description = "Coze Vibe Coding project"
+description = "Standalone document auto-filling service"
 requires-python = ">=3.12"
 dependencies = [
     "langchain==1.0.3",
@@ -15,12 +15,6 @@ dependencies = [
     "uvicorn>=0.38,<1",
     "pydantic>=2.12,<3",
     "Jinja2>=3.1,<4",
-    "coze-coding-utils>=0.2.6,<1",
-    "coze-workload-identity>=0.1.4,<1",
-    "opencv-python>=4.12,<5",
-    "pandas>=2.2,<3",
-    "Pillow>=10.3,<11",
-    "cozeloop>=0.1.25,<1",
     "alembic>=1.16,<2",
     "SQLAlchemy>=2.0,<3",
     "python-dotenv>=1.2,<2",
@@ -33,7 +27,6 @@ dependencies = [
     "docx2python>=3.5,<4",
     "openpyxl>=3.1,<4",
     "python-pptx>=1.0,<2",
-    "coze-coding-dev-sdk>0.5.0,<1",
     "rich>=14,<15",
     "chardet>=5.2,<6",
     "python-multipart>=0.0.26",
@@ -42,8 +35,6 @@ dependencies = [
     "lxml>=5.0,<6",
 ]
 
-[tool.uv]
-# 使用阿里云镜像作为默认源，替代 pypi.org
-[[tool.uv.index]]
-url = "https://mirrors.aliyun.com/pypi/simple/"
-default = true
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "httpx>=0.28,<1"]

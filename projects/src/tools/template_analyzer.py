@@ -6,6 +6,7 @@
 3. "标签格+占位符格"模式 - 标签文字后有占位符（如 |题号|[%]|）需替换占位符
 4. "多列数据行"模式 - 表头行下有空白/占位符行，按表头名识别（如 题型百分比、分数段人数等）
 """
+from runtime import WORKSPACE
 
 import os
 import re
@@ -1409,7 +1410,7 @@ def _get_row_label_from_above(table, t_idx: int, r_idx: int) -> Optional[str]:
 
 if __name__ == "__main__":
     template_path = os.path.join(
-        os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"),
+        str(WORKSPACE),
         "assets", "template_exam_lingnan.docx"
     )
     result = analyze_template(template_path)

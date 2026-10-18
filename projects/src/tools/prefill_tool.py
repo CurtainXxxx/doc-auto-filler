@@ -9,6 +9,7 @@ prefill_tool.py — AI预填工具：从知识文件自动提取字段值并生�
 5. 多文件结果合并
 6. 返回带置信度的预填结果，供前端审核界面展示
 """
+from runtime import WORKSPACE
 
 import os
 import re
@@ -16,16 +17,16 @@ import json
 from dotenv import load_dotenv
 
 # 加载项目根目录的 .env 文件（兼容工作区根/子项目两种布局）
-_env_base = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
+_env_base = str(WORKSPACE)
 _env_path = os.path.join(_env_base, ".env")
 if not os.path.isfile(_env_path):
     _env_path = os.path.join(_env_base, "projects", ".env")
-load_dotenv(_env_path, override=True)
+load_dotenv(_env_path, override=False)
 
 from langchain.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage
-from coze_coding_utils.log.write_log import request_context
-from coze_coding_utils.runtime_ctx.context import new_context
+from runtime import request_context
+from runtime import new_context
 
 from tools.knowledge_tool import _extract_text_from_file, _rule_extract_fields
 from tools.template_analyzer import analyze_template
@@ -392,57 +393,9 @@ def _extract_course_objective_rows(file_content: str, num_cols: int) -> list:
 
 
 def _call_llm(system_prompt: str, user_prompt: str, ctx=None) -> str:
-    """调用LLM，支持外部API和平台内置LLM。带重试逻辑。"""
-    import time
-    ext_api_key = os.getenv("EXTERNAL_LLM_API_KEY")
-    ext_base_url = os.getenv("EXTERNAL_LLM_BASE_URL")
-
-    if ext_api_key and ext_base_url:
-        from langchain_openai import ChatOpenAI
-        ext_model = os.getenv("EXTERNAL_LLM_MODEL", "deepseek-chat")
-        from langchain_core.messages import SystemMessage as SM, HumanMessage as HM
-
-        last_error = None
-        for attempt in range(3):
-            try:
-                print(f"[prefill] 使用外部模型: {ext_model} @ {ext_base_url}")
-                ext_llm = ChatOpenAI(
-                    model=ext_model,
-                    api_key=ext_api_key,
-                    base_url=ext_base_url,
-                    temperature=0.1,
-                    max_tokens=4096,
-                )
-                response = ext_llm.invoke([SM(content=system_prompt), HM(content=user_prompt)])
-                return response.content
-            except Exception as e:
-                last_error = e
-                if attempt < 2:
-                    time.sleep(2 * (attempt + 1))  # 退避: 2s, 4s
-        raise last_error
-    else:
-        from coze_coding_dev_sdk import LLMClient
-        client = LLMClient(ctx=ctx)
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ]
-        response = client.invoke(
-            messages=messages,
-            model="doubao-seed-1-6-251015",
-            temperature=0.1,
-            max_completion_tokens=4096,
-        )
-        content = response.content
-        if isinstance(content, list):
-            return " ".join(
-                item.get("text", "") for item in content
-                if isinstance(item, dict) and item.get("type") == "text"
-            )
-        elif isinstance(content, str):
-            return content
-        else:
-            return str(content)
+    """Use the same configured model as the conversation agents."""
+    from model_provider import call_model
+    return call_model(system_prompt, user_prompt)
 
 
 def _parse_json_array(text: str) -> list:
@@ -672,7 +625,7 @@ def prefill_from_knowledge(file_path: str, template_fields_json: str, row_groups
 
     try:
         # 1. 解析文件路径
-        workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
+        workspace = str(WORKSPACE)
         if not os.path.isabs(file_path):
             full_path = os.path.join(workspace, file_path)
         else:
@@ -840,7 +793,7 @@ def prefill_from_multiple_knowledge(file_paths_json: str, template_fields_json: 
         all_rg_results = {}
         file_names = []
         for fp in file_paths:
-            workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
+            workspace = str(WORKSPACE)
             if not os.path.isabs(fp):
                 full_path = os.path.join(workspace, fp)
             else:
@@ -953,7 +906,7 @@ def prefill_from_file_paths(file_paths: list, template_path: str) -> dict:
         all_file_results = []
         all_rg_results = {}
         file_names = []
-        workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
+        workspace = str(WORKSPACE)
 
         for fp in file_paths:
             if not os.path.isabs(fp):

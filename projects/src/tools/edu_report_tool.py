@@ -1,6 +1,7 @@
 """
 教务报告生成工具 - 核心逻辑
 """
+from runtime import WORKSPACE
 import os
 import json
 import copy
@@ -14,8 +15,8 @@ from docx.oxml import OxmlElement
 from langchain.tools import tool
 from tools.docx_upload import upload_and_validate
 
-from coze_coding_utils.log.write_log import request_context
-from coze_coding_utils.runtime_ctx.context import new_context
+from runtime import request_context
+from runtime import new_context
 from storage.memory.memory_saver import get_memory_saver
 
 from tools.template_analyzer import analyze_template
@@ -102,9 +103,9 @@ def _get_cached_analysis(template_path: str) -> Optional[dict]:
 
 # ── 模板注册表 ──
 TEMPLATE_REGISTRY = {
-    "评价报告": "projects/assets/templates/评价报告模板.docx",
-    "试卷分析": "projects/assets/templates/试卷分析模板.docx",
-    "关联矩阵": "projects/assets/templates/关联矩阵模板.docx",
+    "评价报告": "assets/templates/评价报告模板.docx",
+    "试卷分析": "assets/templates/试卷分析模板.docx",
+    "关联矩阵": "assets/templates/关联矩阵模板.docx",
 }
 
 # 复杂行组最大列数阈值
@@ -112,7 +113,7 @@ _MAX_SIMPLE_GROUP_COLS = 15
 
 
 def _get_template_path(name: str) -> str:
-    workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
+    workspace = str(WORKSPACE)
     file = TEMPLATE_REGISTRY.get(name)
     if not file:
         avail = ", ".join(TEMPLATE_REGISTRY.keys())
@@ -283,7 +284,7 @@ def analyze_uploaded_template(file_path: str) -> str:
         try:
             full_path = _resolve_template_path(file_path)
         except ValueError:
-            workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
+            workspace = str(WORKSPACE)
             if not os.path.isabs(file_path):
                 full_path = os.path.join(workspace, file_path)
             else:
@@ -361,7 +362,7 @@ def generate_from_template(file_path: str, report_data: str) -> str:
             full_path = _resolve_template_path(file_path)
         except ValueError:
             # fallback: 直接路径检查
-            workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
+            workspace = str(WORKSPACE)
             if not os.path.isabs(file_path):
                 full_path = os.path.join(workspace, file_path)
             else:
@@ -436,7 +437,7 @@ def _get_or_create_state(session_id: str, template_path: str = None) -> FormFill
 def _resolve_template_path(template_name_or_path: str) -> str:
     """将模板名称或路径解析为实际文件路径"""
     # 先匹配内置模板注册表
-    workspace = os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects")
+    workspace = str(WORKSPACE)
     for name, rel_path in TEMPLATE_REGISTRY.items():
         if name == template_name_or_path:
             return os.path.join(workspace, rel_path)

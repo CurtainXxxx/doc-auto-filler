@@ -9,6 +9,9 @@
 """
 import json, os, re, sys, time, traceback
 import requests
+import tempfile
+from pathlib import Path
+from urllib.parse import urljoin
 from docx import Document
 from datetime import datetime
 
@@ -16,9 +19,9 @@ from datetime import datetime
 # 配置
 # ============================================================
 BASE_URL = "http://localhost:5000"
-PROJECT_DIR = "/workspace/projects/projects"
-GT_DIR = "/workspace/projects/ground_truth"
-REPORT_DIR = "/workspace/projects"
+PROJECT_DIR = str(Path(__file__).resolve().parents[1])
+GT_DIR = str(Path(PROJECT_DIR).parent / "ground_truth")
+REPORT_DIR = str(Path(PROJECT_DIR).parent)
 KNOWLEDGE_DIR = os.path.join(PROJECT_DIR, "assets/knowledge")
 TEMPLATE_DIR = os.path.join(PROJECT_DIR, "assets/templates")
 
@@ -73,16 +76,15 @@ def extract_s3_url(text):
         r'(https?://[^\s<>"\'\)）\)。，,!\?；;]+\.docx[^\s<>"\'\)）\)。，,!\?；;]*)',
         r'下载链接[：:]\s*(https?://[^\s<>"\'\)）\)。，,!\?；;]+)',
         r'下载[：:]\s*(https?://[^\s<>"\'\)）\)。，,!\?；;]+)',
-        r'"download_url"\s*:\s*"(https?://[^"]+)"',
-        r'(https?://[^\s<>"\'\)）\)。，,!\?；;]*tos\.coze[^\s<>"\'\)）\)。，,!\?；;]*)',
+        r'"download_url"\s*:\s*"([^"]+)"',
     ]
     for p in patterns:
         m = re.search(p, text)
         if m:
             url = m.group(1) if m.lastindex else m.group(0)
             url = re.sub(r'[）\)。，,!\?；;]+$', '', url)
-            if '.docx' in url or 'download' in url or 'generated' in url or 'output' in url or 'tos.coze' in url:
-                return url
+            if '.docx' in url or 'download' in url or 'generated' in url or 'output' in url:
+                return urljoin(BASE_URL, url)
     return None
 
 
@@ -258,7 +260,7 @@ def evaluate_single_test(gt):
         if s3_url:
             r = requests.get(f"{BASE_URL}/download-docx", params={"file_path": s3_url}, timeout=60)
             if r.status_code == 200 and len(r.content) > 100:
-                docx_path = f"/tmp/eval_{tmpl_name}_{difficulty}.docx"
+                docx_path = os.path.join(tempfile.gettempdir(), f"eval_{tmpl_name}_{difficulty}.docx")
                 with open(docx_path, "wb") as f:
                     f.write(r.content)
                 print(f"  [4/5] ✅ 下载 docx ({len(r.content)} 字节)")
