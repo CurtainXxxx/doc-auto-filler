@@ -1,6 +1,7 @@
 """LangGraph execution and SSE transport using public Python/LangGraph APIs."""
 import asyncio
 import json
+import os
 from runtime import new_context, request_context
 
 
@@ -12,15 +13,22 @@ def sse(data):
 
 class GraphService:
     """Share one graph/checkpointer and track cancellable requests by run id."""
-    def __init__(self):
+    def __init__(self, mode=None):
+        self.mode = mode or os.getenv("AGENT_MODE", "workflow")
+        if self.mode not in ("workflow", "leader_worker"):
+            raise ValueError("AGENT_MODE必须为workflow或leader_worker")
         self._graph = None
         self.running_tasks = {}
         self._active_sessions = set()
 
     def _get_graph(self, ctx=None):
         if self._graph is None:
-            from agents.agent import build_agent
-            self._graph = build_agent(ctx)
+            if self.mode == "leader_worker":
+                from agents.leader_worker import build_leader_agent
+                self._graph = build_leader_agent(ctx)
+            else:
+                from agents.agent import build_agent
+                self._graph = build_agent(ctx)
         return self._graph
 
     def _input(self, payload):
@@ -42,7 +50,8 @@ class GraphService:
         if not isinstance(session, str) or len(session) > 200:
             raise ValueError("session_id必须是不超过200字符的字符串")
         ctx.session_id = session
-        return {"configurable": {"thread_id": session}, "recursion_limit": 100}
+        thread_id = f"leader_worker:{session}" if self.mode == "leader_worker" else session
+        return {"configurable": {"thread_id": thread_id}, "recursion_limit": 100}
 
     async def run(self, payload, ctx=None):
         ctx = ctx or new_context("run")
@@ -73,6 +82,13 @@ class GraphService:
             streamed_runs = set()
             async for event in graph.astream_events(graph_input, config=config, version="v2"):
                 data = event.get("data", {})
+                if self.mode == "leader_worker":
+                    if event["event"] == "on_custom_event" and event["name"] == "leader_tool_result":
+                        yield {"role": "tool", "name": data["name"], "content": data["content"]}
+                    elif event["event"] == "on_custom_event" and event["name"] == "leader_text":
+                        yield {"content": data["content"]}
+                    # Workers' JSON and unvalidated leader claims stay internal.
+                    continue
                 if event["event"] == "on_chat_model_stream":
                     chunk = data.get("chunk")
                     content = getattr(chunk, "content", "")

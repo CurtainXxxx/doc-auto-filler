@@ -29,3 +29,9 @@ node tests/check_frontend.cjs
 ```
 
 保持单 worker。应用监听所有网卡，供受信任单用户使用；远程多用户部署还需要身份认证及会话/文件归属控制。模型与云存储密钥只放在环境变量或未跟踪的 .env 中。
+
+## Leader-worker 实验版本
+
+原工作流仍为默认值。设置 `AGENT_MODE=leader_worker` 并重启可试用受约束的Leader调度版本。
+方案、运行和验证边界见 [迭代方案](docs/LEADER_WORKER_PLAN.md) 与 [实现及冒烟报告](docs/LEADER_WORKER_REPORT.md)。
+真实A/B命令：`uv run --frozen python scripts/compare_agent_modes.py --live`，需要本地配置模型；默认测试不调用付费接口。
