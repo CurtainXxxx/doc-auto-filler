@@ -1,5 +1,7 @@
 # Leader-worker 第一轮实现与验证
 
+最新进展（2026-10-23）：本地模型配置完成后，已执行两个场景×两架构共4次真实DeepSeek任务，全部通过。测量、产物验证及边界见[真实A/B报告](LEADER_WORKER_AB_REPORT.md)。下文not_run为早期配置缺失时的历史记录。
+
 日期：2026-10-23。分支：`experiment/leader-worker`；基线：`dec854b`。
 
 ## 已实现

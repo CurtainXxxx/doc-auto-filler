@@ -1,6 +1,8 @@
 # Leader-worker 实验：迭代计划
 
-迭代2进展：已修复冲突确认后遗漏其余材料、数字修改子串误接受，补充Worker重试反馈与逐场景实测记录。78项离线回归通过；本地实验模式已启用，真实双场景测试等待本地`EXTERNAL_LLM_API_KEY`。详细证据见`LEADER_WORKER_REPORT.md`末尾。
+最新验收：两个场景×两架构真实DeepSeek A/B共4次任务全部通过；本轮未修改运行代码。结果见`LEADER_WORKER_AB_REPORT.md`。后续优先验证冲突确认后的多轮继续及复杂行组。
+
+迭代2进展：已修复冲突确认后遗漏其余材料、数字修改子串误接受，补充Worker重试反馈与逐场景实测记录。78项离线回归通过；本地实验模式已启用，配置就绪后真实双场景A/B共4次任务全部通过。详细证据见`LEADER_WORKER_REPORT.md`与`LEADER_WORKER_AB_REPORT.md`。
 
 日期：2026-10-23。基线：`dec854b`，分支：`experiment/leader-worker`。
 当前PR #3尚未合并，实验基于该审查版本，后续以堆叠PR提交，不更改main。
