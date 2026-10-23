@@ -15,7 +15,6 @@
     base.py（get_first_run_rpr, set_paragraph_text_preserve_runs, append_paragraph_with_text）
 """
 
-import re as _re
 from typing import Callable, Optional
 
 from docx.oxml.ns import qn

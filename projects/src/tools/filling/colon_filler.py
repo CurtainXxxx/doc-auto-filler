@@ -17,6 +17,7 @@ from docx.oxml.ns import qn
 from tools.filling.base import get_unique_cells
 from tools.filling.base import set_tc_text, set_paragraph_text_preserve_runs, get_first_run_rpr
 from tools.filling.token_style import set_tc_text_v2, write_text_to_run
+from tools.filling.field_values import field_value
 
 
 _EMBEDDED_DATE_PAT = _re.compile(r"年\s*月\s*日(?:\s*(?:上午|下午|上|下))?")
@@ -157,59 +158,36 @@ def fill_label_fields(doc, label_fields, data):
         label_fields: 标签字段列表，每项含 label/col_idx/row_indices/fill_mode/pattern 等
         data: 字段名 → 字段值的字典
     """
-    for f in label_fields:
-        label = f["label"]
-        fid = f.get("field_id", "")
-        # 段落级字段由 paragraph_filler 单独处理
-        if f.get("pattern") == "paragraph_underline":
+    for field in label_fields:
+        if field.get("pattern") == "paragraph_underline":
             continue
-        # 优先用 label 查 data，回退到 field_id
-        if fid in data:
-            value = data[fid]
-        elif label in data:
-            value = data[label]
-        else:
+        value = field_value(field, data)
+        mode = field.get("fill_mode", "append")
+        if value is None or mode not in ("set", "replace", "append"):
             continue
-        fill_mode = f.get("fill_mode", "append")
-        pattern = f.get("pattern", "colon")
-        existing_value = f.get("existing_value", "")
-
-        for ri in f["row_indices"]:
-            t_idx = f["table_idx"]
-            table = doc.tables[t_idx]
-
-            if fill_mode == "set":
-                col_idx = f["col_idx"]
-                unique_cells = get_unique_cells(table.rows[ri])
-                if col_idx < len(unique_cells):
-                    tc = unique_cells[col_idx]._element
-                    tr = table.rows[ri]._tr
-                    rPr_source = find_label_rPr_in_row(tr)
-                    set_tc_text_v2(tc, str(value), mode="set", rPr_source=rPr_source)
-
-            elif fill_mode == "replace":
-                col_idx = f["col_idx"]
-                unique_cells = get_unique_cells(table.rows[ri])
-                if col_idx < len(unique_cells):
-                    tc = unique_cells[col_idx]._element
-                    raw_label = f.get("raw_label", label)
-                    existing_value = f.get("existing_value", "")
-                    tr = table.rows[ri]._tr
-
-                    if pattern == "colon" and existing_value and _EMBEDDED_DATE_PAT.search(existing_value):
-                        replace_signature_and_date_in_tc(tc, raw_label, existing_value, str(value))
-                    elif pattern == "colon" and not existing_value:
-                        append_value_to_tc_after_label(tc, raw_label, str(value))
-                    else:
-                        rPr_source = find_label_rPr_in_row(tr)
-                        set_tc_text_v2(tc, str(value), mode="replace", rPr_source=rPr_source)
-
-            elif fill_mode == "append":
-                col_idx = f["col_idx"]
-                unique_cells = get_unique_cells(table.rows[ri])
-                if col_idx < len(unique_cells):
-                    tc = unique_cells[col_idx]._element
-                    if existing_value and _EMBEDDED_DATE_PAT.search(existing_value):
-                        replace_embedded_date_in_tc(tc, label, existing_value, str(value))
-                    else:
-                        append_value_to_tc_after_label(tc, label, str(value))
+        value = str(value)
+        label = field["label"]
+        pattern = field.get("pattern", "colon")
+        existing = field.get("existing_value", "")
+        table = doc.tables[field["table_idx"]]
+        for row_index in field["row_indices"]:
+            row = table.rows[row_index]
+            cells = get_unique_cells(row)
+            column = field["col_idx"]
+            if column >= len(cells):
+                continue
+            tc = cells[column]._element
+            if mode == "set":
+                set_tc_text_v2(tc, value, mode="set", rPr_source=find_label_rPr_in_row(row._tr))
+            elif mode == "replace":
+                raw_label = field.get("raw_label", label)
+                if pattern == "colon" and existing and _EMBEDDED_DATE_PAT.search(existing):
+                    replace_signature_and_date_in_tc(tc, raw_label, existing, value)
+                elif pattern == "colon" and not existing:
+                    append_value_to_tc_after_label(tc, raw_label, value)
+                else:
+                    set_tc_text_v2(tc, value, mode="replace", rPr_source=find_label_rPr_in_row(row._tr))
+            elif existing and _EMBEDDED_DATE_PAT.search(existing):
+                replace_embedded_date_in_tc(tc, label, existing, value)
+            else:
+                append_value_to_tc_after_label(tc, label, value)
