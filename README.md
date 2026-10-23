@@ -1,137 +1,184 @@
-> 后续审查与升级记录：[CODE_REVIEW_REPORT.md](projects/docs/CODE_REVIEW_REPORT.md)；当前真实架构/API：[ARCHITECTURE.md](projects/docs/ARCHITECTURE.md)。下方历史评测结果未在本轮重新跑付费模型验证。
-
-> 当前分支已移除扣子平台运行依赖。安装与迁移步骤见 [独立运行说明](projects/docs/STANDALONE.md)。
-> 快速启动：进入 `projects`，执行 `uv sync --frozen`，按 `.env.example` 配置模型，再运行 `uv run python src/main.py -p 5000`。
-> 不配置模型也可使用模板上传、预览及手工填写生成。
-
 # 格智 FormWise — 智能文档自动填写系统
 
-上传 Word 模板与参考材料，系统自动识别字段、提取信息、完整填充并生成 docx 文档，格式完整保留。
+[![Tests](https://github.com/xiaojian-fei/doc-auto-filler/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/xiaojian-fei/doc-auto-filler/actions/workflows/tests.yml)
 
-![Python](https://img.shields.io/badge/Python-3.12-blue) ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green) ![LangGraph](https://img.shields.io/badge/LangGraph-1.0-orange)
+上传 Word 模板和参考材料，识别待填字段，通过 AI 预填、对话或人工编辑完成填写，再生成可下载的 `.docx`。
 
----
+项目已移除 Coze（扣子）的运行时、模型鉴权和存储依赖，可独立部署。默认使用本地文件存储；AI 功能接入自行配置的 OpenAI 兼容模型服务。不配置模型也可上传模板、预览、手工填写和生成 Word。
 
-> **权利声明**：本代码不开源，保留所有权利（All Rights Reserved），仅供作品展示与交流。未经授权禁止复制、修改、分发或商用。详见 [LICENSE](./LICENSE)。
+> **权利声明**：保留所有权利（All Rights Reserved），仅供作品展示与交流。未经授权禁止复制、修改、分发或商用。详见 [LICENSE](LICENSE)。
 
----
+## 主要功能
 
-## 功能
+- 识别常见的冒号、下划线、标签与空白格、复选框、多列及重复行字段。
+- 从 txt、md、csv、docx、xlsx、pdf 材料提取信息，给出预填建议和置信度。
+- 在协同审核面板和文档预览中修改字段，按字段 ID 区分同名字段，支持零值与清空。
+- 通过 python-docx / OpenXML 填写模板，处理文字样式、表格与合并单元格，并检查生成结果。
+- 支持原有 Workflow 和可选的 Leader-worker 两种 Agent 编排方式。
+- 默认本地生成与下载，可选 S3 存储、PostgreSQL 图历史；PDF 转换需要另外安装 LibreOffice。
 
-- **模板自动识别**：上传任意 Word 模板，系统自动扫描字段（冒号字段、空格、下划线、复选框、表格空单元格等），无需手动标注
-- **多源数据提取**：支持上传旧报告、成绩单、聊天记录等文件，AI 自动提取对应字段值；也支持对话逐条填写
-- **人机协同审核**：预填结果按置信度分三色标注（绿色确定 / 黄色推断 / 灰色缺失），审核确认后一键生成
-- **格式 100% 保留**：直接操作 OpenXML 底层结构，Token 级替换文本，不动字体、字号、对齐、合并单元格等格式属性
-- **内置模板 6 个：已覆盖知识域 15 个**（教务：教材申报、缓考申请、考场记录、试卷分析、评价报告、数据申请等；通用行业：金融、医疗、HR、政务、物流等）
+复杂模板仍需核对识别与填写结果。当前不提供图片 OCR，旧二进制 `.doc` / `.xls` 请先转换。
 
 ## 快速开始
 
+需要 Python **3.12+** 和可在终端运行的 **uv**。
+
+```powershell
+git clone https://github.com/xiaojian-fei/doc-auto-filler.git
+cd doc-auto-filler/projects
+uv sync --frozen
+
+# 仅首次创建，保留已有配置
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+```
+
+在 `projects/.env` 填写模型配置。示例使用已联调的 DeepSeek；其他服务需支持工具调用：
+
+```dotenv
+EXTERNAL_LLM_BASE_URL=https://api.deepseek.com
+EXTERNAL_LLM_MODEL=deepseek-flash
+EXTERNAL_LLM_API_KEY=
+AGENT_MODE=workflow
+STORAGE_BACKEND=local
+```
+
+将密钥填入 `EXTERNAL_LLM_API_KEY` 后保存；密钥只放在本地 `.env` 或进程环境变量中。环境变量优先于 `.env`。
+
+```powershell
+# 在 projects 目录执行
+uv run --frozen python src/main.py -p 5000
+```
+
+打开 **http://localhost:5000/web/**；根地址 `/` 也会跳转到该页面。保持单 worker。
+
+Linux/macOS 使用相同的 uv 命令；首次创建配置可用：
+
 ```bash
-# 1. 配置 API Key
-cp projects/.env.example projects/.env
-# 编辑 projects/.env，填入 EXTERNAL_LLM_API_KEY
-
-# 2. 安装依赖（需要 uv）
-uv sync --directory projects
-
-# 3. 启动服务
-bash projects/scripts/http_run.sh -p 5000
+cd projects
+uv sync --frozen
+[ -f .env ] || cp .env.example .env
+# 编辑 .env 后启动
+uv run --frozen python src/main.py -p 5000
 ```
 
-浏览器访问 `http://localhost:5000` 即可使用。
+如果只使用手工填写，模型配置可以暂时留空。更多配置见[独立运行与迁移说明](projects/docs/STANDALONE.md)及[配置示例](projects/.env.example)。
 
-## 系统架构
+## 两种 Agent 架构
 
-```
-用户上传模板 + 材料
-       ↓
-  ┌──────────┐
-  │  Router   │ ← 条件路由，跳过已完成阶段
-  └────┬─────┘
-       ↓
-  ┌──────────┐    ┌──────────────────┐
-  │  知识提取  │ →  │ 旧报告/知识文件解析 │
-  │  Agent    │    │ 事实提取 + 预填    │
-  └──────────┘    └──────────────────┘
-       ↓
-  ┌──────────┐    ┌──────────────────┐
-  │  字段填充  │ →  │ 模板分析 + 字段匹配 │
-  │  Agent    │    │ AI预填 + 置信度标注 │
-  └──────────┘    └──────────────────┘
-       ↓
-  ┌──────────┐    ┌──────────────────┐
-  │  文档生成  │ →  │ OpenXML 底层填充  │
-  │  Agent    │    │ 校验 + 修复 + 导出 │
-  └──────────┘    └──────────────────┘
-       ↓
-    下载 docx
+| 模式 | 编排方式 | 当前定位 |
+| --- | --- | --- |
+| `workflow` | Router 按状态选择知识提取、填写、生成 Agent，跳过已完成阶段 | 默认模式 |
+| `leader_worker` | Leader 根据工具结果动态调度提取/匹配 Worker，以及提交、校验和生成工具 | 可选实验模式 |
+
+```mermaid
+flowchart LR
+    User[模板、材料和用户请求] --> Service[FastAPI / GraphService]
+    Service --> Workflow[Workflow：知识提取 → 填写 → 生成]
+    Service --> Leader[Leader：动态选择下一步]
+    Leader --> Workers[材料提取 / 字段匹配 Worker]
+    Workers --> Leader
+    Leader --> Tools[模板分析 / 提交 / 校验 / 生成]
+    Tools --> Leader
+    Workflow --> Engine[共享 Word 填写引擎]
+    Tools --> Engine
+    Engine --> Output[本地文件或 S3 / 下载]
 ```
 
-- **共 16 个工具**：知识提取 5 个、字段填充 8 个、文档生成 3 个
-- **填充引擎**：10 个子模块（colon_filler / checkbox_filler / paragraph_filler / row_group_filler 等）
+Leader-worker 的提取 Worker 按文件隔离上下文，最多三路并发；匹配候选携带字段 ID、来源证据和置信度。Worker 提供候选，程序负责提交与生成校验；发现来源冲突时可先追问用户。每轮最多八次 Leader 决策、十二次工具执行；这是调度次数限制，不是 Token 或金额限额。
 
-## 技术栈
+在 `.env` 中设置 `AGENT_MODE=leader_worker` 后重启，也可临时覆盖：
 
-| 层 | 技术 |
-|------|------|
-| 运行时 | Python 3.12 |
-| Web 框架 | FastAPI |
-| AI 编排 | LangChain 1.0 / LangGraph 1.0 |
-| 大模型 | DeepSeek / 豆包（OpenAI 兼容接口） |
-| 文档处理 | python-docx + lxml（OpenXML 底层操作） |
-| 前端 | 原生 HTML + CSS + JS（单文件 SPA） |
-| 部署 | 独立 FastAPI / uv，本地或自建服务器 |
+```powershell
+$env:AGENT_MODE = 'leader_worker'
+uv run --frozen python src/main.py -p 5000
+# 停止服务后，设为 workflow 并重新启动即可切回
+```
 
-## 评测结果
+两种模式的图会话命名空间分开。材料超过首版长度限制、复杂同义冲突和跨表行组定位等场景仍需扩展验证。方案见[迭代设计](projects/docs/LEADER_WORKER_PLAN.md)和[实现与验证记录](projects/docs/LEADER_WORKER_REPORT.md)。
 
-采用 **21 个真值（Ground Truth）用例**（7 类教务模板 × 3 难度），**全自动评测**，如实公开包括失败在内的一切数据。
+## 验证与真实模型对比
 
-- 平均准确率 **70.2%**（21 用例）
-- 平均填充率 91.7%
-- 行组平均准确率 **100.0%**
-- 文档生成成功率 100%，格式保持率 100%
-- 21 次生成总成本 **¥0.6321**，总耗时约 33.4 分钟
+当前回归：**82 项 Python 测试、10 项前端行为检查**，以及前端脚本语法、下载链接和转义检查。CI 覆盖 Windows / Ubuntu、Python 3.12 / 3.13。旧代码整理另对六份模板的两个生成入口做了十二组正文 XML 对比，普通字段样例与修改前一致。
 
-### 分模板准确率
+2026-10-23 使用同一 DeepSeek 模型、模板和材料，每场景每架构执行一次，共四次真实任务：
 
-| 模板 | 简单 | 中等 | 困难 |
-|------|:--:|:--:|:--:|
-| 缓考申请单 | 100% | 66.7% | 66.7% |
-| 考场记录表 | 88.9% | 66.7% | 66.7% |
-| 试卷分析模板 | 96.3% | 88.9% | 88.9% |
-| 教材建设申报书 | 100% | 部分完成 | 部分完成 |
-| 教务数据申请表 | 部分完成 | 70.0% | 60.0% |
-| 评价报告模板 | 82.4% | 88.2% | 52.9% |
-| **关联矩阵模板** | **35.0%** | **30.0%** | **15.0%** |
+| 场景 | 架构 | 验收结果 | 耗时 | 模型调用 | 输入+输出 Token |
+| --- | --- | --- | ---: | ---: | ---: |
+| 正常填写 | Workflow | 6/6 关键字段正确，指定留空保留 | 32.681 秒 | 10 | 33,007 |
+| 正常填写 | Leader-worker | 6/6 关键字段正确，指定留空保留 | 11.723 秒 | 8 | 25,153 |
+| 日期冲突 | Workflow | 追问确认，无交付产物 | 16.518 秒 | 10 | 29,629 |
+| 日期冲突 | Leader-worker | 追问确认，无交付产物 | 4.376 秒 | 4 | 5,023 |
 
-### 如实的短板
+这两例中填写结果相同，Leader-worker 调用更少；固定顺序、单次测量不足以证明整体准确率或稳定性能优势，Token 数也不等于实际费用。条件、哈希和产物检查见[真实 A/B 报告](projects/docs/LEADER_WORKER_AB_REPORT.md)。
 
-- **关联矩阵模板**：准确率最低（平均约 26.7%），填充率仅 50%，是当前最薄弱的模板类型；
-- **评价报告模板 · 困难版**：准确率降至 52.9%，且**耗时显著高于其他模板**（简单 140s / 中等 164s / 困难 108s）；
-- 部分难度（教材建设申报书、教务数据申请表的简单档）存在未完全填充的情况。
+开发验证（在 `projects` 下）：
 
-> 以上数据均来自 `eval_report_20260609_181045.md`，由自动评测脚本生成，未做人工挑选或修饰。
+```powershell
+uv run --frozen pytest -q
+uv run --frozen ruff check src tests scripts
+node tests/check_frontend.cjs
+node tests/check_frontend_behavior.cjs
+```
+
+上述回归不调用付费模型。配置好服务后，可显式执行真实对比；该命令会调用模型服务并可能产生费用：
+
+```powershell
+uv run --frozen python scripts/compare_agent_modes.py --live --mode both
+# 单独验证一个场景：追加 --case single_document 或 --case conflicting_dates
+```
+
+原始记录和产物保存在被 Git 忽略的 `projects/data/leader-worker-compare/`。
+
+2026-06-09 的历史 21 用例评测平均准确率为 70.2%，不代表当前版本的全量评测结果；原始数据保留在[历史评测报告](eval_report_20260609_181045.md)。
 
 ## 项目结构
 
+```text
+projects/
+├── src/
+│   ├── main.py                  # API 与静态页面入口
+│   ├── service.py               # 图执行、会话、SSE 与取消
+│   ├── model_provider.py        # 统一模型配置
+│   ├── agents/                  # Workflow 与 Leader-worker
+│   └── tools/filling/           # 共享填写流程、字段取值与 OpenXML 处理
+├── web/
+│   ├── index.html               # 页面结构
+│   ├── styles.css               # 样式
+│   └── js/                      # 状态、聊天、预览、协同编辑、文件与初始化
+├── assets/                     # 模板与示例材料
+├── tests/                      # Python 与前端行为回归
+├── scripts/                    # 启动和实测脚本
+├── docs/                       # 架构、迁移、审查与实测报告
+├── .env.example
+├── pyproject.toml
+└── uv.lock
 ```
-├── projects/
-│   ├── src/                  # 源代码
-│   │   ├── main.py           # FastAPI 入口
-│   │   ├── agents/agent.py   # Router + 3 Agent 流水线
-│   │   ├── tools/            # 16 个工具模块
-│   │   │   ├── filling/      # 填充引擎子模块（10 文件）
-│   │   │   ├── template_analyzer.py
-│   │   │   ├── edu_report_tool.py
-│   │   │   └── ...
-│   │   └── storage/          # 记忆持久化
-│   ├── web/index.html        # 前端 SPA
-│   ├── assets/templates/     # 内置模板
-│   ├── assets/knowledge/     # 知识文件（15 个知识域）
-│   ├── config/               # Agent 配置
-│   └── scripts/              # 启动脚本
-├── ground_truth/             # 21 个真值评测用例
-├── projects/.env.example     # 独立部署配置示例
-├── AGENTS.md                 # 项目记忆与修复记录
-└── eval_report_20260609_181045.md
-```
+
+技术栈：Python、FastAPI、LangChain / LangGraph、python-docx / lxml、原生 HTML/CSS/JavaScript、uv。前端无需额外构建步骤。
+
+## 主要接口
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| GET | `/web/`、`/health` | 页面与健康检查 |
+| POST | `/run`、`/stream_run`、`/v1/chat/completions` | Agent 执行与流式输出 |
+| POST | `/upload-template`、`/upload` | 上传模板与知识材料 |
+| POST | `/prefill`、`/cofill-generate` | AI 预填与人工确认后生成 |
+| GET | `/template-preview`、`/generated-preview` | 文档预览 |
+| GET | `/download-docx`、`/convert-pdf` | 下载 Word、可选 PDF 转换 |
+| POST | `/cancel/{run_id}` | 取消正在执行的请求 |
+
+完整说明见[架构与 API](projects/docs/ARCHITECTURE.md)。
+
+## 运行边界与文档
+
+应用默认监听 `0.0.0.0:5000`，当前适用于受信任的单用户环境。远程多用户部署需要补充身份认证和会话/文件归属控制。默认内存状态重启会丢失；可选 PostgreSQL 不替代全部旧版进程内表单状态，因此保持单 worker。
+
+文档访问限于模板与应用管理的文档目录，其他本地文件通过上传接口导入。S3、PostgreSQL 和 LibreOffice 需要相应环境；本轮没有完成这些组合的真实联调。
+
+- [独立运行与迁移](projects/docs/STANDALONE.md)
+- [架构与 API](projects/docs/ARCHITECTURE.md)
+- [审查和依赖升级记录](projects/docs/CODE_REVIEW_REPORT.md)
+- [DeepSeek 接口及浏览器验收](projects/docs/LIVE_TEST_REPORT.md)
+- [Leader-worker 真实对比](projects/docs/LEADER_WORKER_AB_REPORT.md)
+- [旧前端与填写引擎清理](projects/docs/LEGACY_CLEANUP_REPORT.md)

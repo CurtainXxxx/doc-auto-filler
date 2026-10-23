@@ -13,7 +13,13 @@ flowchart TD
   Browser[浏览器 SPA] --> API[FastAPI main.py]
   API --> Files[document_access.py 文档边界和配额]
   API --> Graph[service.py 调用与 SSE]
-  Graph --> Router[agents/agent.py Router]
+  Graph --> Mode{AGENT_MODE}
+  Mode -->|workflow 默认| Router[agents/agent.py Router]
+  Mode -->|leader_worker| Leader[leader_worker.py 有界调度]
+  Leader --> Workers[材料提取 / 字段匹配 Worker]
+  Workers --> Leader
+  Leader --> Actions[提交 / 校验 / 生成工具]
+  Actions --> Leader
   Router --> Knowledge[知识提取 Agent]
   Router --> Filling[填写 Agent]
   Router --> Generation[生成 Agent]
@@ -22,6 +28,7 @@ flowchart TD
   Generation --> Provider
   API --> Engine[tools/filling 生成引擎]
   Generation --> Engine
+  Actions --> Engine
   Engine --> Storage[docx_upload 本地或标准 S3]
   Graph --> Checkpoint[内存或 PostgreSQL Checkpointer]
 ```
@@ -34,9 +41,11 @@ flowchart TD
 | `main.py` | API、上传、预览、生成、下载；同步文档处理通过线程池执行 |
 | `service.py` | Graph 调用、稳定会话 ID、单次 run ID、同会话并发保护、工具事件、SSE 心跳与取消 |
 | `agents/agent.py` | Router → 知识提取/填写/生成节点；按阶段标记决定下一节点 |
+| `agents/leader_worker.py`、`document_workers.py` | 可选Leader调度、隔离Worker、证据候选与提交/生成门禁 |
 | `model_provider.py` | 对话、事实提取、预填共同使用显式配置的模型接口 |
 | `template_analyzer.py` | 冒号字段、标签空白格、段落横线、复选框、多列与行组识别 |
 | `tools/filling/` | 数据展开、字段/段落/复选框/重复行填写、样式继承、XML 后处理 |
+| `web/js/`、`web/styles.css` | 按职责拆分的原生前端；共享状态、聊天、预览、协同审核、文件操作及初始化 |
 | `form_filling_state.py` | 字段值、确认状态、行组和序列化 |
 | `docx_validator.py` | 结构检查、模板差异与可修复 XML 问题 |
 | `docx_upload.py` | 保存、校验/修复、可选上传；本地与 S3 发布相同最终字节 |
