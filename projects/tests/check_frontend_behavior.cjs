@@ -126,6 +126,15 @@ const tests = {
     assert.equal(run('fieldData.A'), '0');
     assert.equal(run('Object.keys(fieldMap).length'), 2);
   },
+  'late generated previews cannot write back into a reset session': async ({run, context}) => {
+    let resolve;
+    context.fetch = () => new Promise(done => { resolve = done; });
+    const request = run("refreshPreviewFromGeneratedDoc('old.docx')");
+    run('resetDocumentState()');
+    resolve({ok:true,json:async () => ({success:true,field_map:{A:{existing_value:'old'}}})});
+    await request;
+    assert.equal(run('Object.keys(fieldData).length'), 0);
+  },
   'SSE field IDs take precedence over label and free-text guesses': async ({run, context}) => {
     const tool = {success:true,filled_field_values:{A:'first',B:'second'},filled_data:{日期:'wrong'}};
     const events = [

@@ -20,11 +20,13 @@ function parseFieldsLines(fieldsText) {
 
 // ── Refresh preview from a generated docx (update cell values in existing preview) ──
 async function refreshPreviewFromGeneratedDoc(localPath) {
+  const requestId = previewRequestId;
+  const documentPath = currentDocxPath;
   try {
     const response = await fetch('/generated-preview?local_path=' + encodeURIComponent(localPath));
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const result = await response.json();
-    if (!result.success) return;
+    if (!result.success || requestId !== previewRequestId || documentPath !== currentDocxPath) return;
     // Generated documents may no longer expose already-filled cells as fields.
     // Retain the original field map and update only values actually returned.
     const values = {};
