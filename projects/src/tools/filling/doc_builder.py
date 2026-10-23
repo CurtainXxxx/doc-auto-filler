@@ -8,8 +8,7 @@
 区别仅在数据扩展策略和 multi_col 字段处理。
 """
 
-import tempfile
-import os
+import io
 from typing import Dict, Any, Optional, Tuple
 from docx import Document
 from tools.template_analyzer import analyze_template
@@ -41,7 +40,7 @@ def build_report_docx(template_path: str, user_data: dict, analysis_result: dict
     analysis = analysis_result or analyze_template(template_path)
     doc = Document(template_path)
 
-    expanded_data = expand_report_data(template_path, user_data, analysis_result=analysis_result)
+    expanded_data = expand_report_data(template_path, user_data, analysis_result=analysis)
 
     # 识别勾选框行，排除冲突的标签字段
     checkbox_blank_cells = set()
@@ -77,14 +76,9 @@ def build_report_docx(template_path: str, user_data: dict, analysis_result: dict
 
     fix_merged_cells(doc)
 
-    tmp = tempfile.NamedTemporaryFile(suffix=".docx", delete=False)
-    try:
-        doc.save(tmp.name)
-        tmp.seek(0)
-        content = tmp.read()
-    finally:
-        tmp.close()
-        os.unlink(tmp.name)
+    output = io.BytesIO()
+    doc.save(output)
+    content = output.getvalue()
 
     return content, analysis, expanded_data, rg_field_values
 
@@ -142,13 +136,8 @@ def fill_custom_template(template_path: str, user_data: dict, analysis_result: d
 
     fix_merged_cells(doc)
 
-    tmp = tempfile.NamedTemporaryFile(suffix=".docx", delete=False)
-    try:
-        doc.save(tmp.name)
-        tmp.seek(0)
-        content = tmp.read()
-    finally:
-        tmp.close()
-        os.unlink(tmp.name)
+    output = io.BytesIO()
+    doc.save(output)
+    content = output.getvalue()
 
     return content, analysis, expanded_data, rg_field_values

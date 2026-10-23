@@ -32,6 +32,8 @@ def _read_text_file(file_path: str) -> str:
 
 def _extract_text_from_file(file_path: str) -> str:
     """根据文件扩展名提取文本内容"""
+    from document_access import resolve_document_path
+    file_path = resolve_document_path(file_path)
     ext = os.path.splitext(file_path)[1].lower()
 
     if ext == '.txt' or ext == '.md':
@@ -119,7 +121,7 @@ def _extract_text_from_file(file_path: str) -> str:
 
     if ext == '.pdf':
         try:
-            from PyPDF2 import PdfReader
+            from pypdf import PdfReader
             reader = PdfReader(file_path)
             text_parts = []
             for page in reader.pages:
@@ -346,6 +348,28 @@ def _rule_extract_fields(field_list: list, file_content: str) -> dict:
                 break
 
     return extracted
+
+
+@tool
+def read_knowledge_file(file_path: str, offset: int = 0) -> str:
+    """读取已上传知识文件的真实正文，供事实提取使用，不能把路径当正文。
+
+    Args:
+        file_path: 已上传文件路径，限受管文档目录。
+        offset: 字符偏移，默认0；如返回next_offset，继续读取下一页。
+    """
+    try:
+        text = _extract_text_from_file(file_path)
+        if text.startswith(('[docx解析失败:', '[xlsx解析失败:', '[PDF解析失败:', '[不支持的文件格式:')):
+            return json.dumps({"success": False, "message": text}, ensure_ascii=False)
+        if offset < 0 or offset > len(text):
+            raise ValueError("offset超出正文范围")
+        end = min(offset + 6000, len(text))
+        return json.dumps({"success": True, "file_path": file_path, "text": text[offset:end],
+                           "total_chars": len(text), "next_offset": end if end < len(text) else None},
+                          ensure_ascii=False)
+    except (ValueError, OSError) as exc:
+        return json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False)
 
 
 @tool

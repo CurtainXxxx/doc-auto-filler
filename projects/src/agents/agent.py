@@ -69,13 +69,17 @@ def _load_tools():
         init_form_filling, update_form_fields, get_form_status,
         generate_form_document, generate_edu_report, generate_from_template,
     )
-    from tools.knowledge_tool import parse_knowledge_file, extract_facts
+    from tools.knowledge_tool import parse_knowledge_file, extract_facts, read_knowledge_file
     from tools.old_report_extractor import extract_from_old_report, prefill_from_old_report, get_fill_checklist
+    from tools.old_report_extractor import inject_form_states
+    from tools.edu_report_tool import _active_form_states
+    inject_form_states(_active_form_states)
     from tools.prefill_tool import prefill_from_knowledge, prefill_from_multiple_knowledge
 
     return {
         # 知识提取
         "extract_from_old_report": extract_from_old_report,
+        "read_knowledge_file": read_knowledge_file,
         "parse_knowledge_file": parse_knowledge_file,
         "extract_facts": extract_facts,
         "prefill_from_old_report": prefill_from_old_report,
@@ -301,6 +305,7 @@ def build_agent(ctx=None) -> CompiledStateGraph:
         model=llm,
         tools=[
             tools["extract_from_old_report"],
+            tools["read_knowledge_file"],
             tools["parse_knowledge_file"],
             tools["extract_facts"],
             tools["prefill_from_old_report"],

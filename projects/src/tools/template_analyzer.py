@@ -501,6 +501,8 @@ def analyze_template(template_path: str) -> dict:
         "summary": {...}
     }
     """
+    from document_access import resolve_document_path
+    template_path = resolve_document_path(template_path, suffixes={".docx"})
     doc = Document(template_path)
     label_fields = []
     row_groups = []

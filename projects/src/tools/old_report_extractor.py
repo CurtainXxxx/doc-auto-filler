@@ -114,6 +114,9 @@ def _strip_label(cell_text: str, label: str) -> str:
                     if val and val != label:
                         return val
 
+    # Label/blank templates store the value in its own cell without a label prefix.
+    return text
+
 
 def _parse_label_value_pairs(cell_text: str) -> dict[str, str]:
     """从单元格文本中解析所有 label:value 对。
@@ -216,7 +219,7 @@ def _extract_field_values(
 
             for field in row_field_list:
                 field_id = field.get("field_id", "")
-                raw_label = field.get("raw_label", field.get("label", ""))
+                raw_label = field.get("raw_label") or field.get("label", "")
                 fill_mode = field.get("fill_mode", "set")
 
                 pos = _parse_field_id(field_id)
@@ -253,7 +256,7 @@ def _extract_field_values(
 
     # ── 2. 处理段落下划线字段 ──
     for field in analysis_result.get("paragraph_fields", []):
-        raw_label = field.get("raw_label", field.get("label", ""))
+        raw_label = field.get("raw_label") or field.get("label", "")
         para_idx = field.get("paragraph_idx", -1)
         run_idx = field.get("run_idx", -1)
 
@@ -394,7 +397,7 @@ def build_fill_checklist(analysis_result: dict) -> dict:
     }
 
     for field in analysis_result.get("label_fields", []):
-        raw_label = field.get("raw_label", field.get("label", ""))
+        raw_label = field.get("raw_label") or field.get("label", "")
         fill_mode = field.get("fill_mode", "set")
 
         cat = _categorize_field(raw_label, fill_mode)
@@ -449,6 +452,8 @@ def extract_from_old_report(
         analysis = analyze_template(template_path)
 
         # 打开旧报告
+        from document_access import resolve_document_path
+        file_path = resolve_document_path(file_path, suffixes={".docx"})
         doc = Document(file_path)
 
         # 反向提取
@@ -507,6 +512,8 @@ def prefill_from_old_report(
         analysis = analyze_template(template_path)
 
         # 打开旧报告并提取
+        from document_access import resolve_document_path
+        old_report_path = resolve_document_path(old_report_path, suffixes={".docx"})
         doc = Document(old_report_path)
         extracted = _extract_field_values(doc, analysis)
 
@@ -527,7 +534,7 @@ def prefill_from_old_report(
             "success": True,
             "prefilled_count": len(matched),
             "unmatched_count": len(unmatched),
-            "prefilled_fields": {k: v for k, v in extracted.items() if k in matched},
+            "prefilled_fields": {item["label"]: item["value"] for item in matched},
             "still_missing": state.get_missing_important(),
             "progress": state.get_progress(),
             "message": f"从旧报告预填了 {len(matched)} 个字段",

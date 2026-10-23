@@ -17,6 +17,9 @@ def upload_and_validate(docx_bytes: bytes, name_prefix: str, display_name: str, 
     output_dir.mkdir(parents=True, exist_ok=True)
     local_path = output_dir / file_name
     local_path.write_bytes(docx_bytes)
+    validation = validate_doc(template_path, str(local_path)) if validate else None
+    # Validation can repair XML; publish the same bytes as the local preview.
+    docx_bytes = local_path.read_bytes()
     backend = os.getenv("STORAGE_BACKEND", "local").lower()
     if backend == "local":
         download_url = os.getenv("APP_PUBLIC_URL", "").rstrip("/") + "/download-docx?" + urlencode({"file_path": str(local_path)})
@@ -31,7 +34,7 @@ def upload_and_validate(docx_bytes: bytes, name_prefix: str, display_name: str, 
         download_url = client.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=86400)
     else:
         raise ValueError("STORAGE_BACKEND must be local or s3")
-    return {"file_name": file_name, "download_url": download_url, "local_path": str(local_path), "validation": validate_doc(template_path, str(local_path)) if validate else None}
+    return {"file_name": file_name, "download_url": download_url, "local_path": str(local_path), "validation": validation}
 
 def validate_doc(template_path: str, output_path: str) -> dict:
     """对比模板和生成文档的结构完整性（增强版校验管线）。
@@ -69,6 +72,17 @@ def validate_doc(template_path: str, output_path: str) -> dict:
 
     # 2. 运行校验管线（validate_docx）
     validation = validate_docx(output_doc)
+    if not validation["passed"]:
+        try:
+            fix_result = fix_docx(output_path)
+            if fix_result["fixed"]:
+                warnings.append(f"已自动修复 {len(fix_result['fixes'])} 个结构问题")
+                output_doc = Document(output_path)
+                validation = validate_docx(output_doc)
+        except Exception:
+            logger.exception("Document structure repair failed")
+            warnings.append("文档结构自动修复失败，请检查校验结果")
+
 
     # 合并管线校验结果
     errors.extend(validation["errors"])
@@ -100,15 +114,6 @@ def validate_doc(template_path: str, output_path: str) -> dict:
         diff_result = diff_docx(template_path, output_path)
     except Exception as e:
         warnings.append(f"文档对比失败: {e}")
-
-    # 5. 如果有可自动修复的错误，尝试修复
-    if not validation["passed"]:
-        try:
-            fix_result = fix_docx(output_path)
-            if fix_result["fixed"]:
-                warnings.append(f"已自动修复 {len(fix_result['fixes'])} 个结构问题")
-        except Exception:
-            pass  # 修复失败不影响主流程
 
     return {
         "valid": len(errors) == 0,

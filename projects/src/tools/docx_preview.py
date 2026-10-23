@@ -175,7 +175,7 @@ def _render_paragraph_with_fields(para_text: str, para_fields: list, style: str)
     
     para_fields: [(field_id, info), ...] 按 field_id 排序后的列表
     """
-    result = para_text
+    result = _escape(para_text)
     underscore_pattern = re.compile(r'(_{4,})')
     
     # 找到所有下划线块

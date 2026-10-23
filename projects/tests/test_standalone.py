@@ -88,6 +88,46 @@ def test_model_config_shared_and_explicit(monkeypatch):
     monkeypatch.setenv("EXTERNAL_LLM_MODEL", "local-test")
     assert build_model().model_name == "local-test"
 
+@pytest.mark.parametrize("base_url,expected_extra", [
+    ("https://api.deepseek.com", {"type": "disabled"}),
+    ("https://api.deepseek.com/v1", {"type": "disabled"}),
+    ("http://localhost:12345/v1", None),
+])
+def test_provider_tool_roundtrip_serializes_only_supported_options(monkeypatch, base_url, expected_extra):
+    import httpx
+    import model_provider
+    from langchain_core.messages import ToolMessage
+
+    requests = []
+    def respond(request):
+        payload = json.loads(request.content)
+        requests.append(payload)
+        assert payload.get("thinking") == expected_extra
+        if payload["messages"][-1]["role"] == "tool":
+            message = {"role": "assistant", "content": "完成"}
+        else:
+            message = {"role": "assistant", "content": "", "tool_calls": [
+                {"id": "call-probe", "type": "function", "function": {"name": "probe", "arguments": "{}"}}]}
+        return httpx.Response(200, json={"id": "test", "object": "chat.completion", "created": 0,
+            "model": "test", "choices": [{"index": 0, "message": message,
+            "finish_reason": "tool_calls" if message.get("tool_calls") else "stop"}]})
+
+    original = model_provider.ChatOpenAI
+    with httpx.Client(transport=httpx.MockTransport(respond)) as transport:
+        monkeypatch.setattr(model_provider, "ChatOpenAI", lambda **kwargs: original(http_client=transport, **kwargs))
+        for name, value in {"EXTERNAL_LLM_BASE_URL": base_url, "EXTERNAL_LLM_MODEL": "test",
+                            "EXTERNAL_LLM_API_KEY": "offline-test"}.items():
+            monkeypatch.setenv(name, value)
+        model = model_provider.build_model().bind_tools([{"type": "function", "function": {
+            "name": "probe", "description": "Probe", "parameters": {"type": "object", "properties": {}}}}])
+        human = HumanMessage(content="测试工具调用")
+        first = model.invoke([human])
+        assert first.tool_calls[0]["name"] == "probe"
+        second = model.invoke([human, first, ToolMessage(content="ok", tool_call_id="call-probe")])
+        assert second.content == "完成"
+        assert len(requests) == 2
+
+
 def test_legacy_message_input():
     from service import GraphService
     payload = GraphService()._input({"message": "分析模板", "session_id": "legacy"})

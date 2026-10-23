@@ -1,3 +1,5 @@
+> 后续审查与升级记录：[CODE_REVIEW_REPORT.md](projects/docs/CODE_REVIEW_REPORT.md)；当前真实架构/API：[ARCHITECTURE.md](projects/docs/ARCHITECTURE.md)。下方历史评测结果未在本轮重新跑付费模型验证。
+
 > 当前分支已移除扣子平台运行依赖。安装与迁移步骤见 [独立运行说明](projects/docs/STANDALONE.md)。
 > 快速启动：进入 `projects`，执行 `uv sync --frozen`，按 `.env.example` 配置模型，再运行 `uv run python src/main.py -p 5000`。
 > 不配置模型也可使用模板上传、预览及手工填写生成。
