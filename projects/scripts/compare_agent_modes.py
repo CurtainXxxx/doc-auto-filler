@@ -135,6 +135,15 @@ async def run_case(case, mode, output):
                           checks=checks, requested_blank_fields_preserved=blanks, file=str(target))
         record["trace"] = result.get("trace")
         record["budget_exhausted"] = result.get("budget_exhausted", False)
+        record["final_answer"] = next((m.content for m in reversed(result.get("messages", []))
+                                      if m.type == "ai" and isinstance(m.content, str)), "")
+        if mode == "leader_worker":
+            document = result.get("document", {})
+            record["document_status"] = {key: document.get(key) for key in ("revision", "needs_matching", "pending_sources")}
+            record["proposal_errors"] = document.get("proposal", {}).get("errors", [])
+            record["tool_failures"] = [{"action": m.name, "result": json.loads(m.content)}
+                for m in result.get("messages", []) if isinstance(m, ToolMessage)
+                and not json.loads(m.content).get("success", False)]
     except Exception as exc:
         record["error_type"] = type(exc).__name__
     record.update(seconds=round(time.perf_counter() - started, 3), **meter.report())
@@ -146,25 +155,41 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--live", action="store_true", help="Actually call the configured provider")
     parser.add_argument("--mode", choices=("both", "workflow", "leader_worker"), default="both")
+    parser.add_argument("--case", choices=("all", "single_document", "conflicting_dates"), default="all")
     args = parser.parse_args()
-    output = DATA_DIR / "leader-worker-compare" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    output = DATA_DIR / "leader-worker-compare" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output.mkdir(parents=True, exist_ok=True)
-    configured = all(os.getenv(k) for k in ("EXTERNAL_LLM_BASE_URL", "EXTERNAL_LLM_MODEL", "EXTERNAL_LLM_API_KEY"))
-    if not args.live or not configured:
-        report = {"status": "not_run", "reason": "explicit --live and complete local model configuration required"}
+    missing = [k for k in ("EXTERNAL_LLM_BASE_URL", "EXTERNAL_LLM_MODEL", "EXTERNAL_LLM_API_KEY")
+               if not os.getenv(k, "").strip()]
+    path = output / "results.json"
+    report = {"status": "running", "model": os.getenv("EXTERNAL_LLM_MODEL"), "results": [],
+              "limits": "one trial per case; not a statistical accuracy or latency benchmark"}
+    def save():
+        path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    if not args.live or missing:
+        report = {"status": "not_run", "reason": "explicit --live and complete local model configuration required",
+                  "missing_settings": missing, "env_file": str(PROJECT_ROOT / ".env")}
     else:
         async def run():
-            records = []
             for case in cases():
+                if args.case != "all" and args.case != case["name"]:
+                    continue
                 for mode in (("workflow", "leader_worker") if args.mode == "both" else (args.mode,)):
-                    records.append(await run_case(case, mode, output))
-            return records
-        report = {"status": "completed", "results": asyncio.run(run()),
-                  "limits": "one trial per case; not a statistical accuracy or latency benchmark"}
-    path = output / "results.json"
-    path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+                    report["active_case"] = {"mode": mode, "case": case["name"]}
+                    save()
+                    report["results"].append(await run_case(case, mode, output))
+                    report.pop("active_case", None)
+                    save()
+        try:
+            asyncio.run(run())
+            report["status"] = "completed"
+        except KeyboardInterrupt:
+            report["status"] = "interrupted"
+        finally:
+            save()
+    save()
     print(f"Comparison status: {report['status']}; evidence: {path}")
-    return 2 if report["status"] == "not_run" else int(any(r["status"] != "passed" for r in report["results"]))
+    return 2 if report["status"] != "completed" else int(any(r["status"] != "passed" for r in report["results"]))
 
 
 if __name__ == "__main__":

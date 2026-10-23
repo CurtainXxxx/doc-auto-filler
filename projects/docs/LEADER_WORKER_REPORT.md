@@ -81,3 +81,24 @@ uv run --frozen python src/main.py -p 5000
 1. 本地模型配置就绪后运行两种模式的真实A/B，记录失败，不自动重试到“最好结果”。
 2. 根据失败增加fixture，优先修正真实的工具选择或语义匹配问题。
 3. 证据支持后再决定扩大试验或切换默认模式；不自动合并main。
+
+## 迭代2：确认后继续与可修正的Worker反馈
+
+日期：2026-10-23。本轮先用失败回归复现两处问题，再修改：
+
+- 确认单个冲突字段会删除未提交的候选，原实现可能只生成用户确认的一个值、漏掉其余材料。新增`needs_matching`状态；确认冲突后须重新匹配、提交其余事实。已提交文档的局部修改仍可直接重新生成。
+- 用户原话为“成绩改为100”时，原来的子串检查会错误接受0。用户修改现在复用完整数字/标识符的引用边界检查。
+- Worker输出格式、引用不合格时返回受控的具体反馈；重试提取附上该材料上次错误，重试匹配附上候选错误和用户已确认值。供应商原始异常不转发给Leader。
+- 实测脚本增加`--case`，保存最终答复、工具失败和候选错误；每个场景开始和结束均写入结果，手动中断保留已完成记录。
+
+本轮本地验证：`uv run --frozen pytest -q --disable-warnings` → **78 passed，7 warnings，39.36秒**。新增4项回归；Lint、前端语法/下载链接/转义检查、源码编译和`git diff --check`通过。测试仍使用离线脚本模型。
+
+本机已将被Git忽略的`.env`设为`AGENT_MODE=leader_worker`；DeepSeek地址和`deepseek-flash`模型配置保留。执行以下真实测试命令，结果仍为 **not_run**，缺失项明确为`EXTERNAL_LLM_API_KEY`，没有发生真实模型调用：
+
+```powershell
+cd 'D:\FormWise临时文件\doc-auto-filler\projects'
+& 'D:/FormWise临时文件/.tools/uv.exe' run --frozen python scripts/compare_agent_modes.py --live --mode leader_worker
+# 仅重新验证某一个场景时追加：--case single_document 或 --case conflicting_dates
+```
+
+本轮证据：`data/leader-worker-compare/20261023T023338767895Z/results.json`（被Git忽略）。两场景分别验证6个关键单元格及指定留空区域、日期冲突时追问且不发布产物。密钥在本地`.env`配置完成后执行上述命令即可继续；当前不能宣称新版已通过真实模型测试。

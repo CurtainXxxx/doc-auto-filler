@@ -276,3 +276,75 @@ def test_cancellation_cleans_up_supervisor_and_session_lock():
         await stream.aclose()
         assert not service.running_tasks and not service._active_sessions
     asyncio.run(run())
+
+
+def test_resolving_one_conflict_requires_rematching_remaining_facts():
+    template, paths = fixture_files("姓名：李四\n成绩：0")
+    model = SmokeModel(template_path=template, file_paths=paths)
+
+    async def run():
+        session = DocumentSession({}, model, {}, "按材料生成", {"model_calls": 0, "usage_complete": True})
+        await session.inspect_template(template)
+        await session.extract_documents(paths)
+        await session.match_fields()
+        session.user_text = "姓名确认使用李四，请生成"
+        session.apply_user_values({"T0_R0_C1": "李四"})
+        assert not session.validate_document()["success"]
+        assert not (await session.generate_document())["success"]
+        await session.match_fields()
+        session.commit_proposal()
+        result = await session.generate_document()
+        assert result["success"]
+        output = Document(result["local_path"])
+        assert output.tables[0].cell(0, 1).text == "李四"
+        assert output.tables[0].cell(1, 1).text == "0"
+    asyncio.run(run())
+
+
+def test_explicit_numeric_override_cannot_use_a_substring():
+    template, paths = fixture_files()
+
+    async def run():
+        session = DocumentSession({}, None, {}, "成绩改为100", {})
+        await session.inspect_template(template)
+        with pytest.raises(ValueError):
+            session.apply_user_values({"T0_R1_C1": 0})
+        assert not session.doc["values"]
+        session.apply_user_values({"T0_R1_C1": 100})
+        assert session.doc["values"]["T0_R1_C1"] == 100
+    asyncio.run(run())
+
+
+def test_worker_retry_receives_safe_validation_feedback():
+    class FeedbackModel(SmokeModel):
+        payloads: list[dict] = Field(default_factory=list)
+
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+            if messages[0].content.startswith("你是材料提取Worker"):
+                self.payloads.append(json.loads(messages[-1].content))
+                if len(self.payloads) == 1:
+                    return ChatResult(generations=[ChatGeneration(message=AIMessage(content="invalid-json-sentinel"))])
+            return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+
+    template, paths = fixture_files()
+    model = FeedbackModel(template_path=template, file_paths=paths)
+    result = asyncio.run(service_for(model).run({"text": "按材料生成", "session_id": "format-retry"}))
+    assert result["delivered"]
+    assert len(model.payloads) == 2
+    feedback = model.payloads[1]["previous_error"]
+    assert "JSON" in feedback and "invalid-json-sentinel" not in feedback
+    assert not result["document"]["source_errors"]
+
+
+def test_provider_value_error_does_not_expose_raw_error_to_leader():
+    class FailingModel(SmokeModel):
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+            if messages[0].content.startswith("你是字段匹配Worker"):
+                raise ValueError("provider-error-secret-sentinel")
+            return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+
+    template, paths = fixture_files()
+    result = asyncio.run(service_for(FailingModel(template_path=template, file_paths=paths)).run(
+        {"text": "按材料生成", "session_id": "provider-error"}))
+    assert not result["delivered"]
+    assert "provider-error-secret-sentinel" not in "\n".join(str(m.content) for m in result["messages"])
