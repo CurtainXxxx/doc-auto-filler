@@ -12,10 +12,9 @@
 """
 
 import re
-from typing import List, Any
 from docx.oxml.ns import qn
-from tools.filling.base import get_first_run_rpr
 from tools.docx_validator import sanitize_fill_text
+from tools.filling.field_values import field_value
 
 
 def fill_paragraph_fields(doc, paragraph_fields, data):
@@ -32,14 +31,10 @@ def fill_paragraph_fields(doc, paragraph_fields, data):
     文字下划线模式：字段将从 run 文本中按 ____ 出现顺序逐个替换。
     """
     for f in paragraph_fields:
-        label = f["label"]
-        fid = f.get("field_id", "")
-        if fid in data:
-            value = str(data[fid])
-        elif label in data:
-            value = str(data[label])
-        else:
+        value = field_value(f, data)
+        if value is None:
             continue
+        value = str(value)
 
         p_idx = f["row_idx"]
         if p_idx >= len(doc.paragraphs):

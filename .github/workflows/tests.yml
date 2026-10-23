@@ -26,3 +26,4 @@ jobs:
       - run: uv run ruff check src tests scripts
       - run: uv run pytest -q
       - run: node tests/check_frontend.cjs
+      - run: node tests/check_frontend_behavior.cjs

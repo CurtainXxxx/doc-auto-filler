@@ -8,7 +8,6 @@ multi_col 填充：一行内多个待填列，按顺序填入值。
 """
 
 import copy
-from typing import List, Dict, Any, Optional
 from docx.oxml.ns import qn
 from tools.filling.base import set_tc_text
 from tools.filling.token_style import set_tc_text_v2

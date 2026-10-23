@@ -11,7 +11,6 @@ builtin_expander 用于内置模板场景（含考勤映射、分数段自动计
 """
 
 import re
-from typing import List, Dict, Any
 
 
 def simplify_generic_fields(label_fields):

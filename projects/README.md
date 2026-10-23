@@ -26,9 +26,12 @@ uv run python src/main.py -p 5000
 uv run pytest -q
 uv run ruff check src tests scripts
 node tests/check_frontend.cjs
+node tests/check_frontend_behavior.cjs
 ```
 
 保持单 worker。应用监听所有网卡，供受信任单用户使用；远程多用户部署还需要身份认证及会话/文件归属控制。模型与云存储密钥只放在环境变量或未跟踪的 .env 中。
+
+前端职责划分、填写引擎整理及回归证据见[旧代码清理报告](docs/LEGACY_CLEANUP_REPORT.md)。
 
 ## Leader-worker 实验版本
 

@@ -9,7 +9,6 @@
 依赖：tools.template_analyzer (analyze_template)
 """
 
-from typing import List, Dict, Any, Optional
 from tools.template_analyzer import analyze_template
 
 
@@ -135,6 +134,7 @@ def expand_report_data(template_path: str, user_data: dict, analysis_result: dic
     Returns:
         dict: {内部字段名: 值} 的字典，可直接用于填充
     """
+    user_data = dict(user_data)
     analysis = analysis_result or analyze_template(template_path)
     label_fields = analysis["label_fields"]
 

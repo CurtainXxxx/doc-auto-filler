@@ -13,7 +13,6 @@
 """
 
 import copy
-from typing import Optional
 
 from docx.oxml.ns import qn
 
